@@ -9,6 +9,7 @@ import os
 import typer
 
 app = typer.Typer()
+version = "1.0.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -17,13 +18,44 @@ class ProbePDF(FPDF):
         self.multi_cell(0, 8, text)
 
     def header(self):
-        self.set_font("Arial", 'B', 14)
-        title = "Kubernetes Probe Report Summary" if self.page_no() == 1 else "Kubernetes Probe Report (Owner > Pod > Container)"
-        self.cell(0, 10, title, ln=True, align='C')
-        self.set_font("Arial", '', 11)
-        self.cell(0, 10, f"Generated: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}", ln=True)
-        self.ln(5)
+        if self.page_no() == 1:
+            self.ln(15)
+            self.set_font("Arial", 'B', 35)
+            self.cell(0, 15, "KubeCase Probe Report", ln=True, align='C')
+            self.ln(30)
+        else:
+            self.set_font("Arial", 'B', 14)
+            title = "Kubernetes Probe Report (Owner > Pod > Container)"
+            self.cell(0, 10, title, ln=True, align='C')
+            self.set_font("Arial", '', 11)
+            self.cell(0, 10, f"Generated: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}", ln=True)
+            self.ln(5)
 
+    def add_metadata_table(self, cluster, namespace, owners, pods, containers, timestamp):
+        self.set_font("Arial", '', 16)
+        self.set_fill_color(244, 246, 250)  # Light gray background
+
+        # Define table rows
+        data = [
+            ("Cluster", cluster),
+            ("Namespace", namespace),
+            ("Total Owners", str(owners)),
+            ("Total Pods", str(pods)),
+            ("Total Containers", str(containers)),
+            ("Generated", timestamp)
+        ]
+
+        # Set column width and center table
+        label_width = 60
+        value_width = self.w - 2 * self.l_margin - label_width
+
+        for label, value in data:
+            self.set_font("Arial", 'B', 16)
+            self.cell(label_width, 10, label, border=1, fill=True)
+            self.set_font("Arial", '', 16)
+            self.cell(value_width, 10, value, border=1)
+            self.ln()
+            
     def section_title(self, title):
         self.set_font("Arial", 'B', 12)
         self.cell(0, 10, title, ln=True)
@@ -105,18 +137,30 @@ def probe(namespace: str):
 
             owners[owner][pod_name].append([container_name, startup, liveness, readiness])
 
+    # PDF Generation
     pdf = ProbePDF()
+
+    # Front Page
     pdf.add_page()
+    pdf.add_metadata_table(
+        cluster=cluster_name,
+        namespace=namespace,
+        owners=len(seen_owners),
+        pods=len(pod_data.get('items', [])),
+        containers=all_containers,
+        timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
+    )
 
-    pdf.section_title("Report Overview")
-    pdf.set_font("Arial", '', 11)
-    pdf.cell(0, 8, f"Cluster: {cluster_name}", ln=True)
-    pdf.cell(0, 8, f"Namespace: {namespace}", ln=True)
-    pdf.cell(0, 8, f"Total Owners: {len(seen_owners)}", ln=True)
-    pdf.cell(0, 8, f"Total Pods: {len(pod_data.get('items', []))}", ln=True)
-    pdf.cell(0, 8, f"Total Containers: {all_containers}", ln=True)
-    pdf.cell(0, 8, f"Report Timestamp: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}", ln=True)
+    # Add image
+    pdf.image("mascot.png", x=(pdf.w - 100)/2, y=150, w=100)  
+    pdf.ln(115)
+    pdf.set_font("Arial", 'BI', 16)
+    pdf.cell(0, 20, "\"Sniffing configs, one line at a time\"", ln=True, align='C')
+    pdf.set_font("Arial", '', 16)
+    pdf.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", ln=True, align='C')
 
+
+    # Explanation Page
     pdf.add_page()
     pdf.section_title("Explanation")
     pdf.write_line(
