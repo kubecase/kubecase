@@ -65,7 +65,7 @@ python3 src/generate_probe_report.py -n my-namespace
 
 ## 💡 Vision
 
-KubeCase aims to become the go-to Kubernetes diagnostics toolkit — combining human-readable reports with deep insights to help:
+KubeCase aims to become the go-to Kubernetes diagnostics toolkit. It combines human-readable reports with deep insights to help:
 
   - Platform teams keep clusters healthy
   - App teams troubleshoot faster
