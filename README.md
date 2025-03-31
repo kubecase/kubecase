@@ -8,7 +8,7 @@
 
 ## 📌 What is KubeCase?
 
-**KubeCase** is your Kubernetes detective assistant — built to sniff out misconfigurations, report on health, and make troubleshooting faster and smarter. It delivers actionable insights into workload health through clean, readable reports — with the flair of a golden doodle detective on the case. 🐶
+**KubeCase** is your Kubernetes detective assistant. It is built to sniff out misconfigurations, report on health, and make troubleshooting faster and smarter. It delivers actionable insights into workload health through clean, readable reports with the flair of a golden doodle detective on the case. 🐶
 
 ---
 
