@@ -36,7 +36,7 @@
   <img src="docs/images/example_probe_cover.png" width="600" alt="Probe Report Sample"/>
 </p>
 <p align="center">
-  <img src="docs/images/example_probe_deployment.png" width="600" alt="Probe Report Sample"/>
+  <img src="docs/images/example_probe_deployment.png?" width="600" alt="Probe Report Sample"/>
 </p>
 
 ---
@@ -55,27 +55,26 @@ pip install -r requirements.txt
 
 # Run a probe report
 python3 src/generate_probe_report.py -n my-namespace
+```
 
-🧩 Requirements
+## 🧩 Requirements
 
     Python 3.8+
     kubectl or oc CLI with access to a Kubernetes cluster
     Permissions to query pod data in the target namespace
 
-💡 Vision
+## 💡 Vision
 
 KubeCase aims to become the go-to Kubernetes diagnostics toolkit — combining human-readable reports with deep insights to help:
 
-    Platform teams keep clusters healthy
+  - Platform teams keep clusters healthy
+  - App teams troubleshoot faster
+  - Everyone understand their workloads better
 
-    App teams troubleshoot faster
-
-    Everyone understand their workloads better
-
-👥 Contributing
+## 👥 Contributing
 
 We welcome contributions, ideas, and collaboration!
 Have a feature request or bug report? Open an issue or pull request.
 
-📄 License
+## 📄 License
 MIT License © 2025 Rey Linares
