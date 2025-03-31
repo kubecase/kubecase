@@ -225,8 +225,11 @@ def get_pod_bootup_duration(pod):
 
 # ---------------------- Main Command ---------------------- #
 @app.command()
-def probe(namespace: str):
-    """Generate a probe report for a specific namespace."""
+def probe(
+    namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace to analyze")
+):
+    typer.echo(f"🔍 Generating report for namespace: {namespace}")
+
     try:
         cluster_name = subprocess.check_output(["kubectl", "config", "current-context"], text=True).strip()
     except subprocess.CalledProcessError:
