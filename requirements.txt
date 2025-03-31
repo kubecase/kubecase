@@ -1,0 +1,15 @@
+click==8.1.8
+colorama==0.4.6
+defusedxml==0.7.1
+fonttools==4.56.0
+fpdf2==2.8.2
+markdown-it-py==3.0.0
+mdurl==0.1.2
+pillow==11.1.0
+Pygments==2.19.1
+python-dateutil==2.9.0.post0
+rich==14.0.0
+shellingham==1.5.4
+six==1.17.0
+typer==0.15.2
+typing_extensions==4.13.0
