@@ -11,7 +11,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.4.2"
+version = "1.5.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -104,12 +104,37 @@ class ProbePDF(FPDF):
         self.cell(0, 10, code_text, fill=True, border=1)
         self.ln(12)
 
-    def add_section_divider(self, title):
+    def add_section_divider(self, title, restarts_summary=None):
         self.add_page(orientation="L")
+        
+        # Title
         self.set_font("DejaVu", 'B', 26)
         self.set_text_color(220, 50, 32)  # Red tone
-        self.cell(0, 100, title, align='C')
+        self.cell(0, 40, title, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
         self.set_text_color(0, 0, 0)  # Reset to black
+        self.set_font("DejaVu", '', 16)
+
+        # Creating Table
+        self.set_fill_color(244, 246, 250)  # Light gray background
+
+        # Set column width and center table
+        label_width = 100
+        value_width = self.w - 2 * self.l_margin - label_width
+
+        for label, value in restarts_summary:
+            self.set_font("Dejavu", 'B', 16)
+            self.cell(label_width, 10, label, border=1, fill=True)
+            self.set_font("Dejavu", '', 16)
+            self.cell(value_width, 10, value, border=1)
+            self.ln()
+
+        #if restarts_summary:
+         #   self.ln(10)
+         #   self.cell(0, 10, f"Pods with Restarts: {restarts_summary['pods']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+         #   self.cell(0, 10, f"Total Container Restarts: {restarts_summary['total']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+         #   self.cell(0, 10, f"Max Restarts on One Container: {restarts_summary['max']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
 
 # ---------------------- Helper Functions ---------------------- #
 def get_probe_seconds(probe, probe_type):
@@ -216,7 +241,7 @@ def probe(namespace: str):
 
     owners = defaultdict(lambda: defaultdict(list))
     startup_missing = liveness_missing = readiness_missing = 0
-    all_containers = 0
+    all_containers = restart_pods = total_restarts = max_restarts = 0
     seen_owners = set()
 
     for pod in pod_data.get("items", []):
@@ -226,6 +251,13 @@ def probe(namespace: str):
         seen_owners.add(owner)
         pod_name = metadata["name"]
 
+        # Get restart section data
+        status_map = {}
+        for c in pod.get("status", {}).get("containerStatuses", []):
+            name = c.get("name")
+            if isinstance(name, str):  # only use valid strings as keys
+                status_map[name] = c.get("restartCount", 0)
+
         for container in pod["spec"].get("containers", []):
             all_containers += 1
             container_name = container["name"]
@@ -233,6 +265,12 @@ def probe(namespace: str):
             restart_count = 0
             reason = "N/A"
             exit_code = "N/A"
+
+            # Restart section page data
+            restart_count = status_map.get(container_name, 0)
+            total_restarts += restart_count
+            if restart_count > max_restarts:
+                max_restarts = restart_count
 
             # Get restart count and last termination reason
             for status in pod.get("status", {}).get("containerStatuses", []):
@@ -270,7 +308,12 @@ def probe(namespace: str):
                     elif probe_type == "livenessProbe": liveness_missing += 1
                     elif probe_type == "readinessProbe": readiness_missing += 1
 
+            # Add data to owners dict
             owners[owner][pod_name].append([container_name, startup, liveness, readiness, restart_display, reason_display, restart_time])
+
+        # Check if pod has restarted
+        if any(status_map.get(c["name"], 0) > 0 for c in pod["spec"]["containers"]):
+            restart_pods += 1
 
     # PDF Generation
     pdf = ProbePDF()
@@ -358,7 +401,12 @@ def probe(namespace: str):
     restarted_owners = get_restarted_owners(owners)
 
     if restarted_owners:
-        pdf.add_section_divider("⟳ PODS WITH RESTARTS")
+        restarts_summary = [
+            ("Pods with Restarts", str(restart_pods)),
+            ("Total Container Restarts", str(total_restarts)),
+            ("Max Restarts on One Container", str(max_restarts))
+        ]
+        pdf.add_section_divider("⟳ PODS WITH RESTARTS", restarts_summary)
 
         for owner, pods in restarted_owners.items():
             pdf.add_page(orientation="L")
