@@ -11,7 +11,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.3.0"
+version = "1.4.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -65,7 +65,8 @@ class ProbePDF(FPDF):
         self.ln(1)
 
     def write_table(self, headers, rows):
-        col_widths = [40, 30, 30, 30, 25, 40]
+        col_widths = [35, 25, 20, 20, 20, 40, 40]
+        #col_widths = [self.w * width / sum(col_widths) for width in col_widths]
         self.set_font("Dejavu", 'B', 10)
 
         for i, header in enumerate(headers):
@@ -123,18 +124,32 @@ def get_probe_seconds(probe, probe_type):
     else:
         return f"{initial_total}s, {runtime_total}s"
 
+def get_restart_or_start_time(container_status):
+    try:
+        if container_status.get("restartCount", 0) > 0:
+            terminated = container_status.get("lastState", {}).get("terminated", {})
+            if "finishedAt" in terminated:
+                return parser.parse(terminated["finishedAt"]).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            running = container_status.get("state", {}).get("running", {})
+            if "startedAt" in running:
+                return parser.parse(running["startedAt"]).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        pass
+    return "--"
+
 def get_pod_bootup_duration(pod):
     container_statuses = pod.get("status", {}).get("containerStatuses", [])
     restarts_exist = any(cs.get("restartCount", 0) > 0 for cs in container_statuses)
 
+    def extract_time(condition_type):
+        for cond in pod.get("status", {}).get("conditions", []):
+            if cond["type"] == condition_type and cond["status"] == "True":
+                return cond["lastTransitionTime"]
+        return None
+
     if not restarts_exist:
         # Use conditions if no container has restarted
-        def extract_time(condition_type):
-            for cond in pod.get("status", {}).get("conditions", []):
-                if cond["type"] == condition_type and cond["status"] == "True":
-                    return cond["lastTransitionTime"]
-            return None
-
         scheduled = extract_time("PodScheduled")
         ready = extract_time("ContainersReady") or extract_time("Ready")
 
@@ -203,6 +218,7 @@ def probe(namespace: str):
             # Get restart count and last termination reason
             for status in pod.get("status", {}).get("containerStatuses", []):
                 if status["name"] == container_name:
+                    restart_time = get_restart_or_start_time(status)
                     restart_count = status.get("restartCount", 0)
                     last = status.get("lastState", {})
                     if "terminated" in last:
@@ -235,7 +251,7 @@ def probe(namespace: str):
                     elif probe_type == "livenessProbe": liveness_missing += 1
                     elif probe_type == "readinessProbe": readiness_missing += 1
 
-            owners[owner][pod_name].append([container_name, startup, liveness, readiness, restart_display, reason_display])
+            owners[owner][pod_name].append([container_name, startup, liveness, readiness, restart_display, reason_display, restart_time])
 
     # PDF Generation
     pdf = ProbePDF()
@@ -317,7 +333,7 @@ def probe(namespace: str):
             pdf.ln(1)
 
             # Table
-            pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason"], containers)
+            pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running"], containers)
 
     # Create reports folder if it doesn't exist
     os.makedirs("reports", exist_ok=True)
