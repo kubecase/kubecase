@@ -8,9 +8,10 @@ from fpdf.enums import XPos, YPos
 import subprocess
 import json
 import typer
+import os
 
 app = typer.Typer()
-version = "1.2.0"
+version = "1.3.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -318,10 +319,17 @@ def probe(namespace: str):
             # Table
             pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason"], containers)
 
+    # Create reports folder if it doesn't exist
+    os.makedirs("reports", exist_ok=True)
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_path = f"probe_report_{namespace}_{timestamp}.pdf"
-    pdf.output(out_path)
-    typer.echo(f"✅ KubeCase Probe Report saved to {out_path}")
+    out_path = f"reports/probe_report_{namespace}_{timestamp}.pdf"
+
+    try:
+        pdf.output(out_path)
+        typer.echo(f"✅ KubeCase Probe Report saved to {out_path}")
+    except Exception as e:
+        typer.echo(f"❌ Error saving PDF: {e}")
 
 if __name__ == "__main__":
     app()
