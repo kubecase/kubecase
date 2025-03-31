@@ -3,9 +3,9 @@
 from datetime import datetime
 from collections import defaultdict
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 import subprocess
 import json
-import os
 import typer
 
 app = typer.Typer()
@@ -14,22 +14,22 @@ version = "1.0.0"
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
     def write_line(self, text):
-        self.set_font("Arial", '', 12)
+        self.set_font("Dejavu", '', 12)
         self.multi_cell(0, 8, text)
 
     def header(self):
         if self.page_no() == 1:
             self.ln(15)
-            self.set_font("Arial", 'B', 35)
-            self.cell(0, 15, "KubeCase Probe Report", ln=True, align='C')
+            self.set_font("Dejavu", 'B', 35)
+            self.cell(0, 15, "KubeCase Probe Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
             self.ln(30)
         else:
-            self.set_font("Arial", 'B', 18)
-            self.cell(0, 10, "KubeCase Probe Report", ln=True, align='C')
+            self.set_font("Dejavu", 'B', 18)
+            self.cell(0, 10, "KubeCase Probe Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
             self.ln(5)
 
     def add_metadata_table(self, cluster, namespace, owners, pods, containers, timestamp):
-        self.set_font("Arial", '', 16)
+        self.set_font("Dejavu", '', 16)
         self.set_fill_color(244, 246, 250)  # Light gray background
 
         # Define table rows
@@ -47,36 +47,50 @@ class ProbePDF(FPDF):
         value_width = self.w - 2 * self.l_margin - label_width
 
         for label, value in data:
-            self.set_font("Arial", 'B', 16)
+            self.set_font("Dejavu", 'B', 16)
             self.cell(label_width, 10, label, border=1, fill=True)
-            self.set_font("Arial", '', 16)
+            self.set_font("Dejavu", '', 16)
             self.cell(value_width, 10, value, border=1)
             self.ln()
             
     def section_title(self, title):
-        self.set_font("Arial", 'B', 16)
-        self.cell(0, 15, title, ln=True)
+        self.set_font("Dejavu", 'B', 16)
+        self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def pod_title(self, pod_name):
-        self.set_font("Arial", 'B', 11)
-        self.cell(0, 8, f"Pod: {pod_name}", ln=True)
+        self.set_font("Dejavu", 'B', 11)
+        self.cell(0, 8, f"Pod: {pod_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.ln(1)
 
     def write_table(self, headers, rows):
-        col_widths = [70, 30, 30, 30]
-        self.set_font("Arial", 'B', 10)
+        col_widths = [40, 30, 30, 30, 25, 40]
+        self.set_font("Dejavu", 'B', 10)
+
         for i, header in enumerate(headers):
             self.cell(col_widths[i], 8, header, border=1)
         self.ln()
-        self.set_font("Arial", '', 9)
+
+        self.set_font("Dejavu", '', 9)
         for row in rows:
+            restart_count_raw = row[4].split()[0]
+            restart_count = int(restart_count_raw) if restart_count_raw.isdigit() else 0
+
+            # Determine fill color
+            if restart_count > 0:
+                self.set_fill_color(255, 255, 153)  # yellow
+            else:
+                self.set_fill_color(255, 255, 255)  # white
+
+            # IF POD IS NOT READY
+            # self.set_fill_color(255, 102, 102)  # red
+
             for i, item in enumerate(row):
-                self.cell(col_widths[i], 8, str(item), border=1)
+                self.cell(col_widths[i], 8, str(item), border=1, fill=True)
             self.ln()
         self.ln(3)
 
     def write_paragraph(self, text, font_style='', font_size=12, spacing=5):
-        self.set_font("Arial", font_style, font_size)
+        self.set_font("Dejavu", font_style, font_size)
         self.write(spacing, text)
         self.ln()
 
@@ -157,7 +171,33 @@ def probe(namespace: str):
             all_containers += 1
             container_name = container["name"]
             startup = liveness = readiness = "--"
+            restart_count = 0
+            reason = "N/A"
+            exit_code = "N/A"
 
+            # Get restart count and last termination reason
+            for status in pod.get("status", {}).get("containerStatuses", []):
+                if status["name"] == container_name:
+                    restart_count = status.get("restartCount", 0)
+                    last = status.get("lastState", {})
+                    if "terminated" in last:
+                        reason = last["terminated"].get("reason", "Terminated")
+                        exit_code = last["terminated"].get("exitCode", "N/A")
+                    break
+
+            # Add warning icon
+            if restart_count > 0:
+                restart_display = f"{restart_count} ⚠"
+            else:
+                restart_display = f"{restart_count}"
+
+            # Format reason with exit code
+            if exit_code != "N/A":
+                reason_display = f"{reason} (code {exit_code})"
+            else:
+                reason_display = f"{reason}"
+
+            # Get pod bootup duration and probe durations
             for probe_type in ["startupProbe", "livenessProbe", "readinessProbe"]:
                 probe = container.get(probe_type)
                 total = get_probe_seconds(probe, probe_type)
@@ -170,10 +210,12 @@ def probe(namespace: str):
                     elif probe_type == "livenessProbe": liveness_missing += 1
                     elif probe_type == "readinessProbe": readiness_missing += 1
 
-            owners[owner][pod_name].append([container_name, startup, liveness, readiness])
+            owners[owner][pod_name].append([container_name, startup, liveness, readiness, restart_display, reason_display])
 
     # PDF Generation
     pdf = ProbePDF()
+    pdf.add_font("Dejavu", "", "fonts/DejaVuSansCondensed.ttf")
+    pdf.add_font("Dejavu", "B", "fonts/DejaVuSansCondensed-Bold.ttf")
 
     # Front Page
     pdf.add_page()
@@ -188,16 +230,16 @@ def probe(namespace: str):
     # Add image
     pdf.image("mascot.png", x=(pdf.w - 100)/2, y=150, w=100)  
     pdf.ln(115)
-    pdf.set_font("Arial", 'BI', 16)
-    pdf.cell(0, 20, "\"Sniffing configs, one line at a time\"", ln=True, align='C')
-    pdf.set_font("Arial", '', 16)
-    pdf.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", ln=True, align='C')
+    pdf.set_font("Dejavu", 'B', 16)
+    pdf.cell(0, 20, "\"Sniffing configs, one line at a time\"", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+    pdf.set_font("Dejavu", '', 16)
+    pdf.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
 
     # Explanation Page
     pdf.add_page()
     pdf.section_title("Purpose")
-    pdf.set_font("Arial", '', 12)
+    pdf.set_font("Dejavu", '', 12)
     pdf.write_paragraph("The purpose of this report is to gather all the probes configured across all containers in your namespace "
         "so you can easily see how long each probe waits before taking action. Understanding these "
         "durations is critical for troubleshooting delays, crashes, and deployment issues.\n")
@@ -236,12 +278,12 @@ def probe(namespace: str):
                 bootup_str = "Unavailable"
 
             pdf.pod_title(pod_name)
-            pdf.set_font("Arial", '', 10)
-            pdf.cell(0, 5, f"Boot-up Time (PodScheduled to Ready state): {bootup_str}", ln=True)
+            pdf.set_font("Dejavu", '', 10)
+            pdf.cell(0, 5, f"Boot-up Time (PodScheduled to Ready state): {bootup_str}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(1)
 
             # Table
-            pdf.write_table(["Container", "Startup", "Liveness", "Readiness"], containers)
+            pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason"], containers)
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     out_path = f"probe_report_{namespace}_{timestamp}.pdf"
