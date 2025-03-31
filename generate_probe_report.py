@@ -11,7 +11,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.4.0"
+version = "1.4.1"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -316,7 +316,7 @@ def probe(namespace: str):
 
     # Data Pages
     for owner, pods in owners.items():
-        pdf.add_page()
+        pdf.add_page(orientation='L')
         pdf.section_title(f"Owner: {owner}")
         for pod_name, containers in pods.items():
             # Get pod object to extract conditions
