@@ -11,7 +11,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.4.1"
+version = "1.4.2"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -104,6 +104,13 @@ class ProbePDF(FPDF):
         self.cell(0, 10, code_text, fill=True, border=1)
         self.ln(12)
 
+    def add_section_divider(self, title):
+        self.add_page(orientation="L")
+        self.set_font("DejaVu", 'B', 26)
+        self.set_text_color(220, 50, 32)  # Red tone
+        self.cell(0, 100, title, align='C')
+        self.set_text_color(0, 0, 0)  # Reset to black
+
 # ---------------------- Helper Functions ---------------------- #
 def get_probe_seconds(probe, probe_type):
     if not probe:
@@ -137,6 +144,18 @@ def get_restart_or_start_time(container_status):
     except Exception:
         pass
     return "--"
+
+def get_restarted_owners(owners_data):
+    restarted = defaultdict(lambda: defaultdict(list))
+    for owner, pods in owners_data.items():
+        for pod_name, containers in pods.items():
+            restarted_containers = []
+            for row in containers:
+                if int(row[4].split()[0]) > 0:
+                    restarted_containers.append(row)
+            if restarted_containers:
+                restarted[owner][pod_name] = restarted_containers
+    return restarted
 
 def get_pod_bootup_duration(pod):
     container_statuses = pod.get("status", {}).get("containerStatuses", [])
@@ -313,7 +332,7 @@ def probe(namespace: str):
     pdf.section_title("Restart Count and Reason")
     pdf.write_paragraph("If a container has restarted, it is marked with a warning icon, and the row is highlighted "
                         "in yellow. The reason is also shown with the exit code.\n")
-
+    
     # Data Pages
     for owner, pods in owners.items():
         pdf.add_page(orientation='L')
@@ -335,6 +354,22 @@ def probe(namespace: str):
             # Table
             pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running"], containers)
 
+    # === PODS WITH RESTARTS SECTION ===
+    restarted_owners = get_restarted_owners(owners)
+
+    if restarted_owners:
+        pdf.add_section_divider("⟳ PODS WITH RESTARTS")
+
+        for owner, pods in restarted_owners.items():
+            pdf.add_page(orientation="L")
+            pdf.section_title(f"Owner: {owner}")
+            for pod_name, containers in pods.items():
+                pdf.pod_title(pod_name)
+                pdf.write_table(
+                    ["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running"],
+                    containers
+                )
+    
     # Create reports folder if it doesn't exist
     os.makedirs("reports", exist_ok=True)
 
