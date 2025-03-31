@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime
+from dateutil import parser
 from collections import defaultdict
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
@@ -9,7 +10,7 @@ import json
 import typer
 
 app = typer.Typer()
-version = "1.0.0"
+version = "1.2.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -58,8 +59,8 @@ class ProbePDF(FPDF):
         self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def pod_title(self, pod_name):
-        self.set_font("Dejavu", 'B', 11)
-        self.cell(0, 8, f"Pod: {pod_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.set_font("Dejavu", 'B', 12)
+        self.cell(0, 5, f"Pod: {pod_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.ln(1)
 
     def write_table(self, headers, rows):
@@ -121,23 +122,46 @@ def get_probe_seconds(probe, probe_type):
     else:
         return f"{initial_total}s, {runtime_total}s"
 
-def get_pod_bootup_duration(conditions):
-    def extract_time(condition_type):
-        for cond in conditions:
-            if cond["type"] == condition_type and cond["status"] == "True":
-                return cond["lastTransitionTime"]
-        return None
+def get_pod_bootup_duration(pod):
+    container_statuses = pod.get("status", {}).get("containerStatuses", [])
+    restarts_exist = any(cs.get("restartCount", 0) > 0 for cs in container_statuses)
 
-    scheduled = extract_time("PodScheduled")
-    ready = extract_time("ContainersReady") or extract_time("Ready")
+    if not restarts_exist:
+        # Use conditions if no container has restarted
+        def extract_time(condition_type):
+            for cond in pod.get("status", {}).get("conditions", []):
+                if cond["type"] == condition_type and cond["status"] == "True":
+                    return cond["lastTransitionTime"]
+            return None
 
-    if not scheduled or not ready:
-        return None  # Pod not fully ready yet
+        scheduled = extract_time("PodScheduled")
+        ready = extract_time("ContainersReady") or extract_time("Ready")
 
-    fmt = "%Y-%m-%dT%H:%M:%SZ"
-    start = datetime.strptime(scheduled, fmt)
-    end = datetime.strptime(ready, fmt)
-    return int((end - start).total_seconds())
+        if scheduled and ready:
+            try:
+                start = parser.parse(scheduled)
+                end = parser.parse(ready)
+                return int((end - start).total_seconds())
+            except Exception:
+                pass
+    else:
+        # Use runtime timestamps for containers that restarted
+        try:
+            times = []
+            for cs in container_statuses:
+                state = cs.get("state", {})
+                if "running" in state and "startedAt" in state["running"]:
+                    started_at = parser.parse(state["running"]["startedAt"])
+                    finished_at = None
+                    if "lastState" in cs and "terminated" in cs["lastState"]:
+                        finished_at = parser.parse(cs["lastState"]["terminated"]["finishedAt"])
+                    if finished_at:
+                        duration = (started_at - finished_at).total_seconds()
+                        times.append(duration)
+            if times:
+                return int(max(times))  # Longest recovery time
+        except Exception:
+            pass
 
 # ---------------------- Main Command ---------------------- #
 @app.command()
@@ -241,8 +265,8 @@ def probe(namespace: str):
     pdf.section_title("Purpose")
     pdf.set_font("Dejavu", '', 12)
     pdf.write_paragraph("The purpose of this report is to gather all the probes configured across all containers in your namespace "
-        "so you can easily see how long each probe waits before taking action. Understanding these "
-        "durations is critical for troubleshooting delays, crashes, and deployment issues.\n")
+        "so you can easily see how long each probe waits before taking action. In this report you will also see restart count "
+        " and the reason. Understanding these durations and reasons is critical for troubleshooting delays, crashes, and deployment issues.")
     pdf.section_title("3 Types of Probes")
     pdf.write_paragraph("Startup Probe", font_style='B')
     pdf.write_paragraph("Determines when a container is ready to start receiving traffic.\n"
@@ -253,7 +277,7 @@ def probe(namespace: str):
         "If it fails, the container is restarted and the probe is retried.\n")
     pdf.write_paragraph("Readiness Probe", font_style='B')
     pdf.write_paragraph("Determines when a container is ready to start serving traffic.\n"
-        "If it fails, the container is removed from the service's load balancer.\n")
+        "If it fails, the container is removed from the service's load balancer.")
     
     pdf.section_title("Probe Timing")
     pdf.write_paragraph("The report is organized by workload owner, then lists each pod and its containers.\n")
@@ -262,7 +286,16 @@ def probe(namespace: str):
     pdf.write_paragraph("Liveness and Readiness Probes:", font_style='B')
     pdf.write_code_block("initialDelay + period × (successThreshold - 1), period × failureThreshold")
     pdf.write_paragraph("Probes not configured are shown as '--'. This layout helps identify which probes "
-                 "exist, how aggressive they are, and where gaps exist.\n\n")
+                 "exist, how aggressive they are, and where gaps exist.")
+    
+    pdf.section_title("Bootup Time")
+    pdf.write_paragraph("The time it takes for a pod to start up is shown in 'Bootup Time'. "
+                        "This is the time from when the pod is created to when the pod is Ready. If a container "
+                         "has restarted, the bootup time is the time from the last restart to when the pod is Ready.\n")
+    
+    pdf.section_title("Restart Count and Reason")
+    pdf.write_paragraph("If a container has restarted, it is marked with a warning icon, and the row is highlighted "
+                        "in yellow. The reason is also shown with the exit code.\n")
 
     # Data Pages
     for owner, pods in owners.items():
@@ -272,14 +305,14 @@ def probe(namespace: str):
             # Get pod object to extract conditions
             pod_obj = next((p for p in pod_data["items"] if p["metadata"]["name"] == pod_name), None)
             if pod_obj:
-                bootup_time = get_pod_bootup_duration(pod_obj["status"].get("conditions", []))
+                bootup_time = get_pod_bootup_duration(pod_obj)
                 bootup_str = f"{bootup_time}s" if bootup_time is not None else "Pending or Unknown"
             else:
                 bootup_str = "Unavailable"
 
             pdf.pod_title(pod_name)
-            pdf.set_font("Dejavu", '', 10)
-            pdf.cell(0, 5, f"Boot-up Time (PodScheduled to Ready state): {bootup_str}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_font("Dejavu", '', 12)
+            pdf.cell(0, 5, f"Bootup Time: {bootup_str}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(1)
 
             # Table
