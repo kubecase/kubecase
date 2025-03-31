@@ -14,7 +14,7 @@ version = "1.0.0"
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
     def write_line(self, text):
-        self.set_font("Arial", '', 11)
+        self.set_font("Arial", '', 12)
         self.multi_cell(0, 8, text)
 
     def header(self):
@@ -24,11 +24,8 @@ class ProbePDF(FPDF):
             self.cell(0, 15, "KubeCase Probe Report", ln=True, align='C')
             self.ln(30)
         else:
-            self.set_font("Arial", 'B', 14)
-            title = "Kubernetes Probe Report (Owner > Pod > Container)"
-            self.cell(0, 10, title, ln=True, align='C')
-            self.set_font("Arial", '', 11)
-            self.cell(0, 10, f"Generated: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}", ln=True)
+            self.set_font("Arial", 'B', 18)
+            self.cell(0, 10, "KubeCase Probe Report", ln=True, align='C')
             self.ln(5)
 
     def add_metadata_table(self, cluster, namespace, owners, pods, containers, timestamp):
@@ -57,9 +54,8 @@ class ProbePDF(FPDF):
             self.ln()
             
     def section_title(self, title):
-        self.set_font("Arial", 'B', 12)
-        self.cell(0, 10, title, ln=True)
-        self.ln(1)
+        self.set_font("Arial", 'B', 16)
+        self.cell(0, 15, title, ln=True)
 
     def pod_title(self, pod_name):
         self.set_font("Arial", 'B', 11)
@@ -78,6 +74,17 @@ class ProbePDF(FPDF):
                 self.cell(col_widths[i], 8, str(item), border=1)
             self.ln()
         self.ln(3)
+
+    def write_paragraph(self, text, font_style='', font_size=12, spacing=5):
+        self.set_font("Arial", font_style, font_size)
+        self.write(spacing, text)
+
+    def write_code_block(self, code_text):
+        self.ln(2)
+        self.set_font("Courier", '', 12)
+        self.set_fill_color(240, 240, 240)
+        self.cell(0, 10, code_text, fill=True, border=1)
+        self.ln(12)
 
 # ---------------------- Helper Functions ---------------------- #
 def get_probe_seconds(probe, probe_type):
@@ -150,7 +157,6 @@ def probe(namespace: str):
         containers=all_containers,
         timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     )
-
     # Add image
     pdf.image("mascot.png", x=(pdf.w - 100)/2, y=150, w=100)  
     pdf.ln(115)
@@ -162,17 +168,40 @@ def probe(namespace: str):
 
     # Explanation Page
     pdf.add_page()
-    pdf.section_title("Explanation")
-    pdf.write_line(
-        "This report organizes probes by workload owner, then lists each pod and its containers. "
-        "For each container, the time before a probe takes action is calculated as:\n"
-        "initialDelaySeconds + (periodSeconds × failureThreshold) \n"
-        "Probes not configured are shown as '--'. This layout helps identify which probes exist, how aggressive they are, and where gaps exist.\n\n"
-        "Probe Timing Format:\n"
-        "initial_time, runtime_time\n"
-        "Example: 12s, 6s\nMeans: First failure may take up to 12s (cold start), while any future failures will be detected within 6s"
-    )
+    pdf.section_title("Purpose")
+    pdf.set_font("Arial", '', 12)
+    pdf.write_paragraph("The purpose of this report is to gather all the probes configured across all containers in your namespace "
+        "so you can easily see how long each probe waits before taking action. Understanding these "
+        "durations is critical for troubleshooting delays, crashes, and deployment issues.\n")
+    pdf.section_title("3 Types of Probes")
+    pdf.write_paragraph("1. Startup Probe:", font_style='B')
+    pdf.write_paragraph(" Determines when a container is ready to start receiving traffic.\n"
+        "If it fails, the container is restarted and the probe is retried. Readiness and Liveness "
+        "probes are disabled until the Startup probe succeeds.\n\n")
+    pdf.write_paragraph("2. Liveness Probe:", font_style='B')
+    pdf.write_paragraph(" Determines when a container is healthy and should continue running.\n"
+        "If it fails, the container is restarted and the probe is retried.\n\n")
+    pdf.write_paragraph("3. Readiness Probe:", font_style='B')
+    pdf.write_paragraph(" Determines when a container is ready to start serving traffic.\n"
+        "If it fails, the container is removed from the service's load balancer.\n\n")
+    
+    pdf.section_title("Probe Timing")
+    pdf.write_paragraph("The report is organized by workload owner, then lists each pod and its containers. "
+        "For each container, the bootup phase duration formula before the probe would take action is:\n")
+    pdf.write_code_block("initialDelaySeconds + (periodSeconds × failureThreshold)")
+    code = "initialDelaySeconds + (periodSeconds × failureThreshold)"
+    pdf.write_paragraph("After bootup, the formula before a probe would take action is calculated as:\n")
+    pdf.write_code_block("periodSeconds × failureThreshold")
+    pdf.write_paragraph("Probes not configured are shown as '--'. This layout helps identify which probes "
+                 "exist, how aggressive they are, and where gaps exist.\n\n")
+    pdf.write_paragraph("Example:", font_style='B')
+    pdf.write_paragraph("\nInitial Boot, Runtime\n12s, 6s\n")
+    pdf.write_paragraph("Explanation:", font_style='B')
+    pdf.write_paragraph("If a container has a Liveness or Readiness Probe with initialDelaySeconds=6, periodSeconds=2, and failureThreshold=3, "
+        "the formula would be 6 + (2 × 3) = 12 seconds. This means the first failure may take up to 12 seconds to detect, "
+        "while any future failures will be detected within 6 seconds.\n\n")
 
+    # Data Pages
     for owner, pods in owners.items():
         pdf.add_page()
         pdf.section_title(f"Owner: {owner}")
