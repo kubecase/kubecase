@@ -78,10 +78,11 @@ class ProbePDF(FPDF):
     def write_paragraph(self, text, font_style='', font_size=12, spacing=5):
         self.set_font("Arial", font_style, font_size)
         self.write(spacing, text)
+        self.ln()
 
     def write_code_block(self, code_text):
         self.ln(2)
-        self.set_font("Courier", '', 12)
+        self.set_font("Courier", '', 10)
         self.set_fill_color(240, 240, 240)
         self.cell(0, 10, code_text, fill=True, border=1)
         self.ln(12)
@@ -92,10 +93,37 @@ def get_probe_seconds(probe, probe_type):
         return None
     delay = probe.get("initialDelaySeconds", 0)
     period = probe.get("periodSeconds", 10)
-    threshold = probe.get("failureThreshold", 3)
-    runtime_total = period * threshold
-    initial_total = delay + runtime_total
-    return f"{initial_total}s" if probe_type == "startupProbe" else f"{initial_total}s, {runtime_total}s"
+    successThreshold = probe.get("successThreshold", 1)
+    failureThreshold = probe.get("failureThreshold", 3)
+    #timeoutSeconds = probe.get("timeoutSeconds", 1)
+
+    # Calculate total runtime for the probe
+    startUp_max = delay + period * failureThreshold
+    initial_total = delay + period * (successThreshold - 1)
+    runtime_total = period * failureThreshold
+
+    if probe_type == "startupProbe":
+        return f"{delay}s + {period}s, {startUp_max}s"
+    else:
+        return f"{initial_total}s, {runtime_total}s"
+
+def get_pod_bootup_duration(conditions):
+    def extract_time(condition_type):
+        for cond in conditions:
+            if cond["type"] == condition_type and cond["status"] == "True":
+                return cond["lastTransitionTime"]
+        return None
+
+    scheduled = extract_time("PodScheduled")
+    ready = extract_time("ContainersReady") or extract_time("Ready")
+
+    if not scheduled or not ready:
+        return None  # Pod not fully ready yet
+
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    start = datetime.strptime(scheduled, fmt)
+    end = datetime.strptime(ready, fmt)
+    return int((end - start).total_seconds())
 
 # ---------------------- Main Command ---------------------- #
 @app.command()
@@ -174,39 +202,45 @@ def probe(namespace: str):
         "so you can easily see how long each probe waits before taking action. Understanding these "
         "durations is critical for troubleshooting delays, crashes, and deployment issues.\n")
     pdf.section_title("3 Types of Probes")
-    pdf.write_paragraph("1. Startup Probe:", font_style='B')
-    pdf.write_paragraph(" Determines when a container is ready to start receiving traffic.\n"
+    pdf.write_paragraph("Startup Probe", font_style='B')
+    pdf.write_paragraph("Determines when a container is ready to start receiving traffic.\n"
         "If it fails, the container is restarted and the probe is retried. Readiness and Liveness "
-        "probes are disabled until the Startup probe succeeds.\n\n")
-    pdf.write_paragraph("2. Liveness Probe:", font_style='B')
-    pdf.write_paragraph(" Determines when a container is healthy and should continue running.\n"
-        "If it fails, the container is restarted and the probe is retried.\n\n")
-    pdf.write_paragraph("3. Readiness Probe:", font_style='B')
-    pdf.write_paragraph(" Determines when a container is ready to start serving traffic.\n"
-        "If it fails, the container is removed from the service's load balancer.\n\n")
+        "probes are disabled until the Startup probe succeeds.\n")
+    pdf.write_paragraph("Liveness Probe", font_style='B')
+    pdf.write_paragraph("Determines when a container is healthy and should continue running.\n"
+        "If it fails, the container is restarted and the probe is retried.\n")
+    pdf.write_paragraph("Readiness Probe", font_style='B')
+    pdf.write_paragraph("Determines when a container is ready to start serving traffic.\n"
+        "If it fails, the container is removed from the service's load balancer.\n")
     
     pdf.section_title("Probe Timing")
-    pdf.write_paragraph("The report is organized by workload owner, then lists each pod and its containers. "
-        "For each container, the bootup phase duration formula before the probe would take action is:\n")
-    pdf.write_code_block("initialDelaySeconds + (periodSeconds × failureThreshold)")
-    code = "initialDelaySeconds + (periodSeconds × failureThreshold)"
-    pdf.write_paragraph("After bootup, the formula before a probe would take action is calculated as:\n")
-    pdf.write_code_block("periodSeconds × failureThreshold")
+    pdf.write_paragraph("The report is organized by workload owner, then lists each pod and its containers.\n")
+    pdf.write_paragraph("Startup Probe:", font_style='B')
+    pdf.write_code_block("initialDelay + period, initialDelay + period × failureThreshold")
+    pdf.write_paragraph("Liveness and Readiness Probes:", font_style='B')
+    pdf.write_code_block("initialDelay + period × (successThreshold - 1), period × failureThreshold")
     pdf.write_paragraph("Probes not configured are shown as '--'. This layout helps identify which probes "
                  "exist, how aggressive they are, and where gaps exist.\n\n")
-    pdf.write_paragraph("Example:", font_style='B')
-    pdf.write_paragraph("\nInitial Boot, Runtime\n12s, 6s\n")
-    pdf.write_paragraph("Explanation:", font_style='B')
-    pdf.write_paragraph("If a container has a Liveness or Readiness Probe with initialDelaySeconds=6, periodSeconds=2, and failureThreshold=3, "
-        "the formula would be 6 + (2 × 3) = 12 seconds. This means the first failure may take up to 12 seconds to detect, "
-        "while any future failures will be detected within 6 seconds.\n\n")
 
     # Data Pages
     for owner, pods in owners.items():
         pdf.add_page()
         pdf.section_title(f"Owner: {owner}")
         for pod_name, containers in pods.items():
+            # Get pod object to extract conditions
+            pod_obj = next((p for p in pod_data["items"] if p["metadata"]["name"] == pod_name), None)
+            if pod_obj:
+                bootup_time = get_pod_bootup_duration(pod_obj["status"].get("conditions", []))
+                bootup_str = f"{bootup_time}s" if bootup_time is not None else "Pending or Unknown"
+            else:
+                bootup_str = "Unavailable"
+
             pdf.pod_title(pod_name)
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(0, 5, f"Boot-up Time (PodScheduled to Ready state): {bootup_str}", ln=True)
+            pdf.ln(1)
+
+            # Table
             pdf.write_table(["Container", "Startup", "Liveness", "Readiness"], containers)
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
