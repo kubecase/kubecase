@@ -8,7 +8,7 @@
 
 ## 📌 What is KubeCase?
 
-**KubeCase** is your Kubernetes detective assistant — built to sniff out misconfigurations, report on health, and make troubleshooting faster and smarter. It delivers actionable insights into workload health through clean, readable reports — with the flair of a golden doodle detective on the case. 🐶
+**KubeCase** is your Kubernetes detective assistant. It is built to sniff out misconfigurations, report on health, and make troubleshooting faster and smarter. It delivers actionable insights into workload health through clean, readable reports with the flair of a golden doodle detective on the case. 🐶
 
 ---
 
@@ -65,7 +65,7 @@ python3 src/generate_probe_report.py -n my-namespace
 
 ## 💡 Vision
 
-KubeCase aims to become the go-to Kubernetes diagnostics toolkit — combining human-readable reports with deep insights to help:
+KubeCase aims to become the go-to Kubernetes diagnostics toolkit. It combines human-readable reports with deep insights to help:
 
   - Platform teams keep clusters healthy
   - App teams troubleshoot faster
