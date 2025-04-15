@@ -11,7 +11,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.5.0"
+version = "1.6.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -65,7 +65,7 @@ class ProbePDF(FPDF):
         self.ln(1)
 
     def write_table(self, headers, rows):
-        col_widths = [35, 25, 20, 20, 20, 40, 40]
+        col_widths = [35, 25, 20, 20, 20, 40, 40, 80]
         #col_widths = [self.w * width / sum(col_widths) for width in col_widths]
         self.set_font("Dejavu", 'B', 10)
 
@@ -169,6 +169,41 @@ def get_restart_or_start_time(container_status):
     except Exception:
         pass
     return "--"
+
+def calculate_uptime(last_seen_running_str):
+    """
+    Calculate the uptime of a Kubernetes container given a last seen running timestamp as a string.
+
+    Args:
+        last_seen_running_str (str): The last seen running timestamp as a string in the format "YYYY-MM-DD HH:MM:SS".
+
+    Returns:
+        str: The uptime in a human-readable format.
+    """
+    # Parse the last seen running timestamp string into a datetime object
+    last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S")
+
+    # Get the current timestamp
+    current_timestamp = datetime.now()
+
+    # Calculate the uptime
+    uptime = current_timestamp - last_seen_running
+
+    # Convert uptime to human-readable format
+    days = uptime.days
+    hours, remainder = divmod(uptime.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    uptime_str = ""
+    if days > 0:
+        uptime_str += f"{days} days, "
+    if hours > 0:
+        uptime_str += f"{hours} hours, "
+    if minutes > 0:
+        uptime_str += f"{minutes} minutes, "
+    uptime_str += f"{seconds} seconds"
+
+    return uptime_str
 
 def get_restarted_owners(owners_data):
     restarted = defaultdict(lambda: defaultdict(list))
@@ -279,6 +314,7 @@ def probe(
             for status in pod.get("status", {}).get("containerStatuses", []):
                 if status["name"] == container_name:
                     restart_time = get_restart_or_start_time(status)
+                    uptime = calculate_uptime(restart_time)
                     restart_count = status.get("restartCount", 0)
                     last = status.get("lastState", {})
                     if "terminated" in last:
@@ -312,7 +348,7 @@ def probe(
                     elif probe_type == "readinessProbe": readiness_missing += 1
 
             # Add data to owners dict
-            owners[owner][pod_name].append([container_name, startup, liveness, readiness, restart_display, reason_display, restart_time])
+            owners[owner][pod_name].append([container_name, startup, liveness, readiness, restart_display, reason_display, restart_time, uptime])
 
         # Check if pod has restarted
         if any(status_map.get(c["name"], 0) > 0 for c in pod["spec"]["containers"]):
@@ -398,7 +434,7 @@ def probe(
             pdf.ln(1)
 
             # Table
-            pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running"], containers)
+            pdf.write_table(["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running", "Uptime"], containers)
 
     # === PODS WITH RESTARTS SECTION ===
     restarted_owners = get_restarted_owners(owners)
@@ -417,7 +453,7 @@ def probe(
             for pod_name, containers in pods.items():
                 pdf.pod_title(pod_name)
                 pdf.write_table(
-                    ["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running"],
+                    ["Container", "Startup", "Liveness", "Readiness", "Restarts", "Reason", "Last Seen Running", "Uptime"],
                     containers
                 )
     
