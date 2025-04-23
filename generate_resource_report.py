@@ -194,6 +194,8 @@ def aggregate_resources_by_controller(pods_json):
 
     for pod in pods_json["items"]:
         controller = extract_controller_name(pod)
+        if controller.startswith("standalone/"):
+          grouped_data[controller]["flags"]["Standalone pod without controller"] += 1
         grouped_data[controller]["pod_count"] += 1
 
         for container in pod["spec"]["containers"]:
@@ -464,7 +466,7 @@ class PDFReport(FPDF):
       self.set_font("Dejavu", 'B', 16)
       self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    def add_table_with_flag_rows(self, dataframe, col_widths=None, title=None):
+    def add_table_with_flag_rows(self, dataframe, col_widths=None, title=None, highlight_usage=False):
         if title:
             self.set_font("Dejavu", "B", 12)
             self.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -484,30 +486,29 @@ class PDFReport(FPDF):
         
         for _, row in dataframe.iterrows():
           self.set_font("Dejavu", "", 10)
+          self.set_fill_color(255, 255, 255)  # white
+          text_color = (0, 0, 0)
 
           # --- Determine fill color based on Usage (%) ---
-          try:
-              resource_name = row.get("Resource", "")
-              usage = float(row.get("Usage (%)", 0))
-          except (ValueError, TypeError):
-              usage = 0
+          resource_name = row.get("Resource", "")
+          usage = float(row.get("Usage (%)", 0))
 
-          print
-          if resource_name == "resourcequotas":
-              # Special case for resourcequotas
-              self.set_fill_color(255, 255, 255)  # default white
-              text_color = (0, 0, 0)
-          elif usage >= 90:
-              self.set_fill_color(255, 0, 0)  # red
-              text_color = (255, 255, 255)
-          elif usage >= 80:
-              self.set_fill_color(255, 255, 153)  # yellow
-              text_color = (0, 0, 0)
-          else:
-              self.set_fill_color(255, 255, 255)  # white
-              text_color = (0, 0, 0)
+          if highlight_usage:
+            if resource_name == "resourcequotas":
+                # Special case for resourcequotas
+                self.set_fill_color(255, 255, 255)  # default white
+                text_color = (0, 0, 0)
+            elif usage >= 90:
+                self.set_fill_color(255, 0, 0)  # red
+                text_color = (255, 255, 255)
+            elif usage >= 80:
+                self.set_fill_color(255, 255, 153)  # yellow
+                text_color = (0, 0, 0)
+            else:
+                self.set_fill_color(255, 255, 255)  # white
+                text_color = (0, 0, 0)
 
-          self.set_text_color(*text_color)
+            self.set_text_color(*text_color)
 
           # --- Standard data row ---
           for i, col in enumerate(data_cols):
@@ -581,7 +582,7 @@ def resource(
     ((255, 255, 255), "resourcequotas (Expected 1/1 count)")
     ]
     pdf.add_color_legend("Legend", legend_items_section1)
-    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40, 40])
+    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40, 40], highlight_usage=True)
 
     # Section 2 - Controller-Level Resource Usage
     pdf.add_page(orientation='L')
@@ -591,7 +592,14 @@ def resource(
     "Lim = Limit",
     "ES = Ephemeral Storage"
     ]
-    pdf.add_legend(legend_lines, title="Legend")
+    legend_items_section_abbr = [
+    ((255, 255, 255), "Req = Requested value"),
+    ((255, 255, 255), "Lim = Limit value"),
+    ((255, 255, 255), "ES = Ephemeral Storage"),
+    ((220, 220, 255), "Warning: If flags were set")  # Pale lavender for Flags row
+    ]
+    pdf.add_color_legend("Legend", legend_items_section_abbr)
+
     df_controller.columns = [
     "Controller", "Pods", 
     "CPU (Req)", "CPU (Lim)", 
