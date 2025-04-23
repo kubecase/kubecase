@@ -162,7 +162,7 @@ def parse_quota_value(resource_key, raw_value):
         elif resource_key.startswith("count/") or resource_key in ["pods", "secrets", "configmaps", "persistentvolumeclaims"]:
             return int(raw_value), None
         else:
-            return float(raw_value), "units", None
+            return float(raw_value), None
     except Exception as e:
         return 0.0, f"Parse error for '{resource_key}': {str(e)}"
     
