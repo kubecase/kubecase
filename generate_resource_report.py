@@ -9,6 +9,7 @@ from datetime import datetime
 import typer
 import os
 from collections import Counter
+import math
 
 app = typer.Typer()
 version = "1.2.1"
@@ -518,7 +519,7 @@ class PDFReport(FPDF):
               controller_value = str(row["Controller"])
               controller_width = col_widths[data_cols.index("Controller")]
               max_text_width = self.get_string_width(controller_value)
-              estimated_lines = int(max_text_width // controller_width) + 1
+              estimated_lines = math.ceil(max_text_width / controller_width)
               row_height = estimated_lines * line_height
 
           # Check if row fits on current page
@@ -646,7 +647,6 @@ def resource(
     "Mem (Req)", "Mem (Lim)", 
     "ES (Req)", "ES (Lim)", "Flags"
     ]
-    print(f"Controller DataFrame:\n{df_controller}")
     pdf.add_table_with_flag_rows(df_controller, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
 
     # Section 3 - Pod-Level Resource Usage
