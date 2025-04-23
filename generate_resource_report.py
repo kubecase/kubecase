@@ -514,14 +514,16 @@ class PDFReport(FPDF):
           row_height = 10  # default
           line_height = 6
 
-          print(f"Calculating row height for: {data_cols}")  # Debugging output
           if "Controller" in data_cols:
-              print(f"Controller column found, calculating height for: {row['Controller']}")  # Debugging output
               controller_value = str(row["Controller"])
               controller_width = col_widths[data_cols.index("Controller")]
               max_text_width = self.get_string_width(controller_value)
               estimated_lines = int(max_text_width // controller_width) + 1
               row_height = estimated_lines * line_height
+
+          # Check if row fits on current page
+          if self.get_y() + row_height + 10 > self.page_break_trigger:
+              self.add_page()
 
           # Store Y position to restore after drawing multi_cell
           y_start = self.get_y()
@@ -529,7 +531,6 @@ class PDFReport(FPDF):
           # STEP 2: Draw the controller column as wrapped
           for i, col in enumerate(data_cols):
               value = f"{row[col]:.2f}" if isinstance(row[col], float) else str(row[col])
-              print(f"Drawing cell: {col} with value: {value}")  # Debugging output
               col_width = col_widths[i]
 
               if col.lower() == "controller":
