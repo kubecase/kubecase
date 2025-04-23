@@ -168,8 +168,8 @@ def parse_quota_value(resource_key, raw_value):
 def extract_controller_name(pod):
     owner_refs = pod['metadata'].get('ownerReferences', [])
     if owner_refs:
-        name = owner_refs[0]['name']
-        return "-".join(name.split("-")[:-1]) or name
+        owner = owner_refs[0]
+        return f"{owner['kind'].lower()}/{owner['name']}"
     return "standalone/" + pod['metadata']['name']
 
 def get_pods(namespace):
