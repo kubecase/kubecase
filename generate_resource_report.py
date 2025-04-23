@@ -452,22 +452,45 @@ class PDFReport(FPDF):
             self.cell(col_widths[i], 10, col, border=1, fill=True, align='C')
         self.ln()
 
-
+        
         for _, row in dataframe.iterrows():
-            # Normal data row
-            for i, col in enumerate(data_cols):
-                self.set_font("Dejavu", "", 10)
-                value = f"{row[col]:.2f}" if isinstance(row[col], float) else str(row[col])
-                self.cell(col_widths[i], 10, value, border=1, align='C')
-            self.ln()
+          self.set_font("Dejavu", "", 10)
+          
+          # --- Determine fill color based on Usage (%) ---
+          try:
+              usage = float(row.get("Usage (%)", 0))
+          except (ValueError, TypeError):
+              usage = 0
 
-            # Flags row
-            if str(row["Flags"]) != "OK":
-              self.set_font("Dejavu", "B", 9)
+          if usage >= 90:
+              self.set_fill_color(255, 0, 0)  # red
+              text_color = (255, 255, 255)
+          elif usage >= 80:
               self.set_fill_color(255, 255, 153)  # yellow
-              flags_text = "Flags: " + str(row["Flags"])
-              self.cell(sum(col_widths), 10, flags_text, border=1, fill=True)
-              self.ln()
+              text_color = (0, 0, 0)
+          else:
+              self.set_fill_color(255, 255, 255)  # white
+              text_color = (0, 0, 0)
+
+          self.set_text_color(*text_color)
+
+          # --- Standard data row ---
+          for i, col in enumerate(data_cols):
+              value = f"{row[col]:.2f}" if isinstance(row[col], float) else str(row[col])
+              self.cell(col_widths[i], 10, value, border=1, fill=True, align='C')
+          self.ln()
+
+          # --- Reset colors for Flags row ---
+          self.set_text_color(0, 0, 0)
+          self.set_fill_color(240, 240, 240)
+
+          # Flags row
+          if str(row["Flags"]) != "OK":
+            self.set_font("Dejavu", "B", 9)
+            self.set_fill_color(220, 220, 255)  # Pale lavender for Flags row
+            flags_text = "Flags: " + str(row["Flags"])
+            self.cell(sum(col_widths), 10, flags_text, border=1, fill=True)
+            self.ln()
 
 # ---------------------- Main Command ---------------------- #
 @app.command()
