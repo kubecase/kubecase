@@ -155,16 +155,16 @@ def parse_quota_value(resource_key, raw_value):
     try:
         if any(kw in resource_key for kw in ["cpu"]):
             value, flag = parse_cpu(raw_value)
-            return value, "cores", flag
+            return value, flag
         elif any(kw in resource_key for kw in ["memory", "storage", "ephemeral-storage"]):
             value, flag = parse_mem(raw_value)
-            return value, "MiB", flag
+            return value, flag
         elif resource_key.startswith("count/") or resource_key in ["pods", "secrets", "configmaps", "persistentvolumeclaims"]:
-            return int(raw_value), "count", None
+            return int(raw_value), None
         else:
             return float(raw_value), "units", None
     except Exception as e:
-        return 0.0, "unknown", f"Parse error for '{resource_key}': {str(e)}"
+        return 0.0, f"Parse error for '{resource_key}': {str(e)}"
     
 def extract_controller_name(pod):
     owner_refs = pod['metadata'].get('ownerReferences', [])
@@ -255,8 +255,8 @@ def parse_quota(quota_json):
             used_val = used.get(resource, "0")
             hard_val = hard.get(resource, "0")
 
-            used_num, unit, used_flag = parse_quota_value(resource, used_val)
-            hard_num, unit, hard_flag = parse_quota_value(resource, hard_val)
+            used_num, used_flag = parse_quota_value(resource, used_val)
+            hard_num, hard_flag = parse_quota_value(resource, hard_val)
 
             usage_percent = round((used_num / hard_num) * 100, 1) if hard_num > 0 else 0.0
             flags = "; ".join(filter(None, [used_flag, hard_flag]))
@@ -266,7 +266,6 @@ def parse_quota(quota_json):
                 "Used": used_val,
                 "Hard Limit": hard_val,
                 "Usage (%)": usage_percent,
-                "Unit": unit,
                 "Flags": flags or "OK"
             })
     return pd.DataFrame(quota_data)
@@ -623,7 +622,7 @@ def resource(
     ((255, 255, 255), "resourcequotas (Expected 1/1 count)")
     ]
     pdf.add_color_legend("Legend", legend_items_section1)
-    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40, 40], highlight_usage=True)
+    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40], highlight_usage=True)
 
     # Section 2 - Controller-Level Resource Usage
     pdf.add_page(orientation='L')
