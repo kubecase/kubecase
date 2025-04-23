@@ -651,21 +651,18 @@ def resource(
     pdf.add_table_with_flag_rows(df_controller, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
 
     # Section 3 - Pod-Level Resource Usage
-    pdf.add_page(orientation='L')
-    pdf.section_title("Section 3: Pod Level Resource Usage")
-    pdf.add_legend(legend_lines, title="Legend")
-    container_data = get_container_details(pods_json)
+    #pdf.add_page(orientation='L')
+    #pdf.section_title("Section 3: Pod Level Resource Usage")
+    #pdf.add_legend(legend_lines, title="Legend")
+    #container_data = get_container_details(pods_json)
 
-    for pod_name, df in container_data.items():
-      pdf.add_table_with_flag_rows(
-        df,
-        col_widths=[80, 25, 25, 25, 25, 25, 25, 25],  # Adjust based on your columns
-        title=f"{pod_name}"
-      )
-      pdf.add_page(orientation='L')
-
-
-      
+    #for pod_name, df in container_data.items():
+    #  pdf.add_table_with_flag_rows(
+    #   df,
+    #    col_widths=[80, 25, 25, 25, 25, 25, 25, 25],  # Adjust based on your columns
+    #    title=f"{pod_name}"
+    #  )
+    #  pdf.add_page(orientation='L')  
 
     # Create reports folder if it doesn't exist
     os.makedirs("reports", exist_ok=True)
