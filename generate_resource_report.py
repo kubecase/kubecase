@@ -247,7 +247,6 @@ def parse_quota(quota_json):
 
             usage_percent = round((used_num / hard_num) * 100, 1) if hard_num > 0 else 0.0
             flags = "; ".join(filter(None, [used_flag, hard_flag]))
-            print(f"{resource}: used={used_val} ({used_num}), hard={hard_val} ({hard_num}), flag={flags}")
 
             quota_data.append({
                 "Resource": resource,
@@ -516,8 +515,7 @@ def resource(
     # Section 1 - ResourceQuota Summary
     pdf.add_page(orientation='L')
     pdf.section_title("Section 1: ResourceQuota Summary")
-    print("Quota DataFrame:\n", df_quota)
-    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 35, 35, 35, 35])
+    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40, 40])
 
     # Section 2 - Controller-Level Resource Usage
     pdf.add_page(orientation='L')
