@@ -10,7 +10,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.0.0"
+version = "1.1.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbeReport(FPDF):
@@ -107,43 +107,63 @@ class ProbeReport(FPDF):
 # ---------------------- Helper Functions ---------------------- #
 def parse_cpu(cpu_str):
     if not cpu_str:
-        return 0.0
-    if cpu_str.endswith('m'):
-        return round(float(cpu_str[:-1]) / 1000.0, 2)
-    return round(float(cpu_str), 2)
+        return 0.0, None
+
+    try:
+        if cpu_str.endswith("m"):
+            value = round(float(cpu_str[:-1]) / 1000.0, 2)
+            return value, None
+        elif cpu_str.replace('.', '', 1).isdigit():
+            return round(float(cpu_str), 2), None
+        else:
+            return 0.0, f"Invalid CPU value '{cpu_str}'"
+    except ValueError:
+        return 0.0, f"Unable to parse CPU value '{cpu_str}'"
 
 def parse_mem(mem_str):
     if not mem_str:
-        return 0.0
+        return 0.0, None
 
     try:
         if mem_str.endswith('Ki'):
-            return round(int(mem_str[:-2]) / 1024, 2)  # KiB to MiB
+            return round(int(mem_str[:-2]) / 1024, 2), None
         elif mem_str.endswith('Mi'):
-            return round(float(mem_str[:-2]), 2)
+            return round(float(mem_str[:-2]), 2), None
         elif mem_str.endswith('Gi'):
-            return round(float(mem_str[:-2]) * 1024, 2)
+            return round(float(mem_str[:-2]) * 1024, 2), None
         elif mem_str.endswith('Ti'):
-            return round(float(mem_str[:-2]) * 1024 * 1024, 2)
+            return round(float(mem_str[:-2]) * 1024 * 1024, 2), None
         elif mem_str.endswith('K'):
-            return round(float(mem_str[:-1]) / 1024, 2)
+            return round(float(mem_str[:-1]) / 1024, 2), None
         elif mem_str.endswith('M'):
-            return round(float(mem_str[:-1]), 2)
+            return round(float(mem_str[:-1]), 2), None
         elif mem_str.endswith('G'):
-            return round(float(mem_str[:-1]) * 1024, 2)
+            return round(float(mem_str[:-1]) * 1024, 2), None
         elif mem_str.endswith('T'):
-            return round(float(mem_str[:-1]) * 1024 * 1024, 2)
+            return round(float(mem_str[:-1]) * 1024 * 1024, 2), None
         elif mem_str.endswith('m'):
-            # Custom support: interpret m as millibytes (1/1000 MiB)
-            return round(float(mem_str[:-1]) / 1000.0, 2)
+            return round(float(mem_str[:-1]) / 1000.0, 2), "Non-standard memory unit 'm' used"
         else:
-            # Assume raw bytes, convert to MiB
-            return round(float(mem_str) / (1024 * 1024), 2)
+            return round(float(mem_str) / (1024 * 1024), 2), None
     except ValueError:
         print(f"⚠️ Warning: Unable to parse memory value '{mem_str}'. Interpreted as 0.")
-        return 0.0
+        return 0.0, f"Unable to parse memory value '{mem_str}'"
 
-
+def parse_quota_value(resource_key, raw_value):
+    try:
+        if any(kw in resource_key for kw in ["cpu"]):
+            value, flag = parse_cpu(raw_value)
+            return value, "cores", flag
+        elif any(kw in resource_key for kw in ["memory", "storage", "ephemeral-storage"]):
+            value, flag = parse_mem(raw_value)
+            return value, "MiB", flag
+        elif resource_key.startswith("count/") or resource_key in ["pods", "secrets", "configmaps", "persistentvolumeclaims"]:
+            return int(raw_value), "count", None
+        else:
+            return float(raw_value), "units", None
+    except Exception as e:
+        return 0.0, "unknown", f"Parse error for '{resource_key}': {str(e)}"
+    
 def extract_controller_name(pod):
     owner_refs = pod['metadata'].get('ownerReferences', [])
     if owner_refs:
@@ -163,8 +183,11 @@ def get_resourcequota(namespace):
 
 def aggregate_resources_by_controller(pods_json):
     grouped_data = defaultdict(lambda: {
-        "pod_count": 0, "cpu_req": 0, "cpu_lim": 0,
-        "mem_req": 0, "mem_lim": 0, "es_req": 0, "es_lim": 0,
+        "pod_count": 0,
+        "cpu_req": 0.0, "cpu_lim": 0.0,
+        "mem_req": 0.0, "mem_lim": 0.0,
+        "es_req": 0.0, "es_lim": 0.0,
+        "flags": []
     })
 
     for pod in pods_json["items"]:
@@ -176,14 +199,39 @@ def aggregate_resources_by_controller(pods_json):
             req = resources.get("requests", {})
             lim = resources.get("limits", {})
 
-            grouped_data[controller]["cpu_req"] += parse_cpu(req.get("cpu"))
-            grouped_data[controller]["cpu_lim"] += parse_cpu(lim.get("cpu"))
-            grouped_data[controller]["mem_req"] += parse_mem(req.get("memory"))
-            grouped_data[controller]["mem_lim"] += parse_mem(lim.get("memory"))
-            grouped_data[controller]["es_req"] += parse_mem(req.get("ephemeral-storage"))
-            grouped_data[controller]["es_lim"] += parse_mem(lim.get("ephemeral-storage"))
+            # CPU
+            cpu_req, cpu_req_flag = parse_cpu(req.get("cpu"))
+            cpu_lim, cpu_lim_flag = parse_cpu(lim.get("cpu"))
+            grouped_data[controller]["cpu_req"] += cpu_req
+            grouped_data[controller]["cpu_lim"] += cpu_lim
 
-    return pd.DataFrame.from_dict(grouped_data, orient="index").reset_index().rename(columns={"index": "Controller"})
+            # Memory
+            mem_req, mem_req_flag = parse_mem(req.get("memory"))
+            mem_lim, mem_lim_flag = parse_mem(lim.get("memory"))
+            grouped_data[controller]["mem_req"] += mem_req
+            grouped_data[controller]["mem_lim"] += mem_lim
+
+            # Ephemeral Storage
+            es_req, es_req_flag = parse_mem(req.get("ephemeral-storage"))
+            es_lim, es_lim_flag = parse_mem(lim.get("ephemeral-storage"))
+            grouped_data[controller]["es_req"] += es_req
+            grouped_data[controller]["es_lim"] += es_lim
+
+            # Collect any parsing flags
+            for flag in [cpu_req_flag, cpu_lim_flag, mem_req_flag, mem_lim_flag, es_req_flag, es_lim_flag]:
+                if flag:
+                    grouped_data[controller]["flags"].append(flag)            
+
+    # Build the DataFrame
+    df = pd.DataFrame.from_dict(grouped_data, orient="index").reset_index().rename(columns={"index": "Controller"})
+    df["Flags"] = df["flags"].apply(lambda flist: "; ".join(flist) if flist else "OK")
+    df.drop(columns=["flags"], inplace=True)
+
+    # Round numeric fields
+    for col in ["cpu_req", "cpu_lim", "mem_req", "mem_lim", "es_req", "es_lim"]:
+        df[col] = df[col].round(2)
+
+    return df
 
 def parse_quota(quota_json):
     quota_data = []
@@ -194,20 +242,19 @@ def parse_quota(quota_json):
             used_val = used.get(resource, "0")
             hard_val = hard.get(resource, "0")
 
-            if "m" in used_val or "m" in hard_val:
-                used_num = parse_cpu(used_val)
-                hard_num = parse_cpu(hard_val)
-            else:
-                used_num = parse_mem(used_val)
-                hard_num = parse_mem(hard_val)
+            used_num, unit, used_flag = parse_quota_value(resource, used_val)
+            hard_num, unit, hard_flag = parse_quota_value(resource, hard_val)
 
             usage_percent = round((used_num / hard_num) * 100, 1) if hard_num > 0 else 0.0
+            flags = "; ".join(filter(None, [used_flag, hard_flag]))
 
             quota_data.append({
                 "Resource": resource,
                 "Used": used_val,
                 "Hard Limit": hard_val,
-                "Usage (%)": usage_percent
+                "Usage (%)": usage_percent,
+                "Unit": unit,
+                "Flags": flags or "OK"
             })
     return pd.DataFrame(quota_data)
 
@@ -361,8 +408,8 @@ class PDFReport(FPDF):
               value = str(row[col])
               cell_width = col_widths[i]
 
-                # Use multi_cell for wrapping (only on the "Flags" column or long text)
-              if col.lower() == "flags" or len(value) > 20:
+              # Use multi_cell for wrapping (only on the "Flags" column)
+              if col.lower() == "flags":
                   x_before = self.get_x()
                   y_before = self.get_y()
                   self.multi_cell(cell_width, 10, value, border=1)
@@ -432,9 +479,9 @@ def resource(
     pdf.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
     # Section 1 - ResourceQuota Summary
-    pdf.add_page()
+    pdf.add_page(orientation='L')
     pdf.section_title("Section 1: ResourceQuota Summary")
-    pdf.add_table(df_quota, col_widths=[50, 30, 30, 30])
+    pdf.add_table(df_quota, col_widths=[70, 30, 30, 30, 30, 30])
     pdf.ln(10)
 
     # Section 2 - Controller-Level Resource Usage
@@ -450,9 +497,9 @@ def resource(
     "Controller", "Pods", 
     "CPU (Req)", "CPU (Lim)", 
     "Mem (Req)", "Mem (Lim)", 
-    "ES (Req)", "ES (Lim)"
+    "ES (Req)", "ES (Lim)", "Flags"
     ]
-    pdf.add_table(df_controller, col_widths=[60, 25, 25, 25, 25, 25, 25, 25])
+    pdf.add_table(df_controller, col_widths=[60, 25, 25, 25, 25, 25, 25, 25, 40])
 
     # Section 3 - Pod-Level Resource Usage
     pdf.add_page(orientation='L')
