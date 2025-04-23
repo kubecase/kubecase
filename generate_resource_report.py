@@ -8,6 +8,7 @@ from fpdf.enums import XPos, YPos
 from datetime import datetime
 import typer
 import os
+from collections import Counter
 
 app = typer.Typer()
 version = "1.2.0"
@@ -187,8 +188,9 @@ def aggregate_resources_by_controller(pods_json):
         "cpu_req": 0.0, "cpu_lim": 0.0,
         "mem_req": 0.0, "mem_lim": 0.0,
         "es_req": 0.0, "es_lim": 0.0,
-        "flags": []
+        "flags": Counter()
     })
+    
 
     for pod in pods_json["items"]:
         controller = extract_controller_name(pod)
@@ -220,11 +222,11 @@ def aggregate_resources_by_controller(pods_json):
             # Collect any parsing flags
             for flag in [cpu_req_flag, cpu_lim_flag, mem_req_flag, mem_lim_flag, es_req_flag, es_lim_flag]:
                 if flag:
-                    grouped_data[controller]["flags"].append(flag)            
+                    grouped_data[controller]["flags"][flag] += 1        
 
     # Build the DataFrame
     df = pd.DataFrame.from_dict(grouped_data, orient="index").reset_index().rename(columns={"index": "Controller"})
-    df["Flags"] = df["flags"].apply(lambda flist: "; ".join(flist) if flist else "OK")
+    df["Flags"] = df["flags"].apply(format_flag_counts)
     df.drop(columns=["flags"], inplace=True)
 
     # Round numeric fields
@@ -232,6 +234,14 @@ def aggregate_resources_by_controller(pods_json):
         df[col] = df[col].round(2)
 
     return df
+
+def format_flag_counts(counter):
+    if not counter:
+        return "OK"
+    return "; ".join(
+        f"{flag} ({count}x)" if count > 1 else flag
+        for flag, count in sorted(counter.items())
+    )
 
 def parse_quota(quota_json):
     quota_data = []
@@ -455,7 +465,7 @@ class PDFReport(FPDF):
         
         for _, row in dataframe.iterrows():
           self.set_font("Dejavu", "", 10)
-          
+
           # --- Determine fill color based on Usage (%) ---
           try:
               usage = float(row.get("Usage (%)", 0))
@@ -555,7 +565,7 @@ def resource(
     "Mem (Req)", "Mem (Lim)", 
     "ES (Req)", "ES (Lim)", "Flags"
     ]
-    pdf.add_table(df_controller, col_widths=[60, 25, 25, 25, 25, 25, 25, 25, 60])
+    pdf.add_table_with_flag_rows(df_controller, col_widths=[60, 25, 25, 25, 25, 25, 25, 25])
 
     # Section 3 - Pod-Level Resource Usage
     pdf.add_page(orientation='L')
@@ -564,36 +574,11 @@ def resource(
     container_data = get_container_details(pods_json)
 
     for pod_name, df in container_data.items():
-      pdf.set_font("Dejavu", "B", 11)
-      pdf.cell(0, 10, f"{pod_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-      # Only include data columns (excluding Flags)
-      cols = [c for c in df.columns if c != "Flags"]
-      col_widths = [60, 25, 25, 25, 25, 25, 25, 25]
-
-      # Header row
-      pdf.set_font("Dejavu", "B", 10)
-      for i, col in enumerate(cols):
-          pdf.cell(col_widths[i], 10, col, border=1, fill=True, align='C')
-      pdf.ln()
-
-      # Data rows
-      pdf.set_font("Dejavu", "", 10)
-      for _, row in df.iterrows():
-          for i, col in enumerate(cols):
-              value = row[col]
-              if isinstance(value, float):
-                  value = f"{value:.2f}"
-              pdf.cell(col_widths[i], 10, str(value), border=1, align='C')
-          pdf.ln()
-
-          # Render flags on their own line
-          pdf.set_font("Dejavu", "", 9)
-          flags_text = "Flags: " + str(row["Flags"])
-          pdf.set_fill_color(244, 246, 250)
-          pdf.cell(sum(col_widths), 8, flags_text, border=1, fill=True)
-          pdf.set_fill_color(255, 255, 255)
-          pdf.ln()
+      pdf.add_table_with_flag_rows(
+        df,
+        col_widths=[60, 25, 25, 25, 25, 25, 25, 25],  # Adjust based on your columns
+        title=f"{pod_name}"
+      )
       pdf.add_page(orientation='L')
 
 
