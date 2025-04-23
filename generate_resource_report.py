@@ -510,11 +510,39 @@ class PDFReport(FPDF):
 
             self.set_text_color(*text_color)
 
-          # --- Standard data row ---
+          # STEP 1: Determine row height if wrapping controller
+          row_height = 10  # default
+          line_height = 6
+
+          print(f"Calculating row height for: {data_cols}")  # Debugging output
+          if "Controller" in data_cols:
+              print(f"Controller column found, calculating height for: {row['Controller']}")  # Debugging output
+              controller_value = str(row["Controller"])
+              controller_width = col_widths[data_cols.index("Controller")]
+              max_text_width = self.get_string_width(controller_value)
+              estimated_lines = int(max_text_width // controller_width) + 1
+              row_height = estimated_lines * line_height
+
+          # Store Y position to restore after drawing multi_cell
+          y_start = self.get_y()
+
+          # STEP 2: Draw the controller column as wrapped
           for i, col in enumerate(data_cols):
               value = f"{row[col]:.2f}" if isinstance(row[col], float) else str(row[col])
-              self.cell(col_widths[i], 10, value, border=1, fill=True, align='C')
-          self.ln()
+              print(f"Drawing cell: {col} with value: {value}")  # Debugging output
+              col_width = col_widths[i]
+
+              if col.lower() == "controller":
+                  # Draw wrapped controller column
+                  x_start = self.get_x()
+                  self.multi_cell(col_width, line_height, value, border=1)
+                  self.set_xy(x_start + col_width, y_start)  # return to top right of the wrapped cell
+              else:
+                  self.set_xy(self.get_x(), y_start)  # reset Y position before drawing each cell
+                  self.cell(col_width, row_height, value, border=1, fill=True, align='C')
+
+          # STEP 3: Move to next line based on tallest column
+          self.ln(row_height)
 
           # --- Reset colors for Flags row ---
           self.set_text_color(0, 0, 0)
@@ -606,6 +634,7 @@ def resource(
     "Mem (Req)", "Mem (Lim)", 
     "ES (Req)", "ES (Lim)", "Flags"
     ]
+    print(f"Controller DataFrame:\n{df_controller}")
     pdf.add_table_with_flag_rows(df_controller, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
 
     # Section 3 - Pod-Level Resource Usage
