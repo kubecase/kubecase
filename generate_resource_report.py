@@ -606,7 +606,7 @@ def resource(
     "Mem (Req)", "Mem (Lim)", 
     "ES (Req)", "ES (Lim)", "Flags"
     ]
-    pdf.add_table_with_flag_rows(df_controller, col_widths=[100, 15, 22, 22, 25, 25, 25, 25])
+    pdf.add_table_with_flag_rows(df_controller, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
 
     # Section 3 - Pod-Level Resource Usage
     pdf.add_page(orientation='L')
