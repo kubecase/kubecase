@@ -492,11 +492,12 @@ class PDFReport(FPDF):
           except (ValueError, TypeError):
               usage = 0
 
+          print
           if resource_name == "resourcequotas":
               # Special case for resourcequotas
               self.set_fill_color(255, 255, 255)  # default white
               text_color = (0, 0, 0)
-          if usage >= 90:
+          elif usage >= 90:
               self.set_fill_color(255, 0, 0)  # red
               text_color = (255, 255, 255)
           elif usage >= 80:
