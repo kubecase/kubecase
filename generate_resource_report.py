@@ -478,12 +478,12 @@ class PDFReport(FPDF):
 
         # Draw header (excluding Flags)
         data_cols = [col for col in dataframe.columns if col != "Flags"]
+        col_widths = col_widths or [40] * len(data_cols)
         for i, col in enumerate(data_cols):
             self.set_fill_color(244, 246, 250)  # Light gray background
             self.cell(col_widths[i], 10, col, border=1, fill=True, align='C')
         self.ln()
 
-        
         for _, row in dataframe.iterrows():
           self.set_font("Dejavu", "", 10)
           self.set_fill_color(255, 255, 255)  # white
@@ -523,7 +523,18 @@ class PDFReport(FPDF):
 
           # Check if row fits on current page
           if self.get_y() + row_height + 10 > self.page_break_trigger:
-              self.add_page()
+              self.add_page(orientation=self.cur_orientation)
+
+              # Re-draw the table header
+              self.set_font("Dejavu", "B", 10)
+              for i, col in enumerate(data_cols):
+                  self.set_fill_color(244, 246, 250)
+                  self.cell(col_widths[i], 10, col, border=1, fill=True, align='C')
+              self.ln()
+              
+              # Reset
+              self.set_font("Dejavu", "", 10)
+              self.set_fill_color(255, 255, 255) 
 
           # Store Y position to restore after drawing multi_cell
           y_start = self.get_y()
