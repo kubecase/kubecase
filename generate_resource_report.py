@@ -114,14 +114,35 @@ def parse_cpu(cpu_str):
 
 def parse_mem(mem_str):
     if not mem_str:
-        return 0
-    if mem_str.endswith('Ki'):
-        return round(int(mem_str[:-2]) / (1024 ** 2), 2)
-    if mem_str.endswith('Mi'):
-        return round(int(mem_str[:-2]) / 1024.0, 2)
-    if mem_str.endswith('Gi'):
-        return round(float(mem_str[:-2]), 2)
-    return round(float(mem_str), 2)
+        return 0.0
+
+    try:
+        if mem_str.endswith('Ki'):
+            return round(int(mem_str[:-2]) / 1024, 2)  # KiB to MiB
+        elif mem_str.endswith('Mi'):
+            return round(float(mem_str[:-2]), 2)
+        elif mem_str.endswith('Gi'):
+            return round(float(mem_str[:-2]) * 1024, 2)
+        elif mem_str.endswith('Ti'):
+            return round(float(mem_str[:-2]) * 1024 * 1024, 2)
+        elif mem_str.endswith('K'):
+            return round(float(mem_str[:-1]) / 1024, 2)
+        elif mem_str.endswith('M'):
+            return round(float(mem_str[:-1]), 2)
+        elif mem_str.endswith('G'):
+            return round(float(mem_str[:-1]) * 1024, 2)
+        elif mem_str.endswith('T'):
+            return round(float(mem_str[:-1]) * 1024 * 1024, 2)
+        elif mem_str.endswith('m'):
+            # Custom support: interpret m as millibytes (1/1000 MiB)
+            return round(float(mem_str[:-1]) / 1000.0, 2)
+        else:
+            # Assume raw bytes, convert to MiB
+            return round(float(mem_str) / (1024 * 1024), 2)
+    except ValueError:
+        print(f"⚠️ Warning: Unable to parse memory value '{mem_str}'. Interpreted as 0.")
+        return 0.0
+
 
 def extract_controller_name(pod):
     owner_refs = pod['metadata'].get('ownerReferences', [])
