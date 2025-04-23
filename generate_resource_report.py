@@ -521,7 +521,6 @@ class PDFReport(FPDF):
               max_text_width = self.get_string_width(controller_value)
               estimated_lines = math.ceil(max_text_width / controller_width)
               row_height = estimated_lines * line_height
-              print(f"Controller value: {controller_value}, Estimated lines: {estimated_lines}, Row height: {row_height}")
 
           # Check if row fits on current page
           if self.get_y() + row_height + 10 > self.page_break_trigger:
