@@ -10,7 +10,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.1.0"
+version = "1.2.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbeReport(FPDF):
@@ -142,7 +142,7 @@ def parse_mem(mem_str):
         elif mem_str.endswith('T'):
             return round(float(mem_str[:-1]) * 1024 * 1024, 2), None
         elif mem_str.endswith('m'):
-            return round(float(mem_str[:-1]) / 1000.0, 2), "Non-standard memory unit 'm' used"
+            return round(float(mem_str[:-1]) * (0.001 / 1048576), 2), "Non-standard memory unit 'm' used"
         else:
             return round(float(mem_str) / (1024 * 1024), 2), None
     except ValueError:
@@ -247,6 +247,7 @@ def parse_quota(quota_json):
 
             usage_percent = round((used_num / hard_num) * 100, 1) if hard_num > 0 else 0.0
             flags = "; ".join(filter(None, [used_flag, hard_flag]))
+            print(f"{resource}: used={used_val} ({used_num}), hard={hard_val} ({hard_num}), flag={flags}")
 
             quota_data.append({
                 "Resource": resource,
@@ -435,6 +436,40 @@ class PDFReport(FPDF):
       self.set_font("Dejavu", 'B', 16)
       self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
+    def add_table_with_flag_rows(self, dataframe, col_widths=None, title=None):
+        if title:
+            self.set_font("Dejavu", "B", 12)
+            self.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            self.ln(2)
+
+        self.set_font("Dejavu", "B", 10)
+        if col_widths is None:
+            col_widths = [40] * len(dataframe.columns)
+
+        # Draw header (excluding Flags)
+        data_cols = [col for col in dataframe.columns if col != "Flags"]
+        for i, col in enumerate(data_cols):
+            self.set_fill_color(244, 246, 250)  # Light gray background
+            self.cell(col_widths[i], 10, col, border=1, fill=True, align='C')
+        self.ln()
+
+
+        for _, row in dataframe.iterrows():
+            # Normal data row
+            for i, col in enumerate(data_cols):
+                self.set_font("Dejavu", "", 10)
+                value = f"{row[col]:.2f}" if isinstance(row[col], float) else str(row[col])
+                self.cell(col_widths[i], 10, value, border=1, align='C')
+            self.ln()
+
+            # Flags row
+            if str(row["Flags"]) != "OK":
+              self.set_font("Dejavu", "B", 9)
+              self.set_fill_color(255, 255, 153)  # yellow
+              flags_text = "Flags: " + str(row["Flags"])
+              self.cell(sum(col_widths), 10, flags_text, border=1, fill=True)
+              self.ln()
+
 # ---------------------- Main Command ---------------------- #
 @app.command()
 def resource(
@@ -481,8 +516,8 @@ def resource(
     # Section 1 - ResourceQuota Summary
     pdf.add_page(orientation='L')
     pdf.section_title("Section 1: ResourceQuota Summary")
-    pdf.add_table(df_quota, col_widths=[70, 30, 30, 30, 30, 30])
-    pdf.ln(10)
+    print("Quota DataFrame:\n", df_quota)
+    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 35, 35, 35, 35])
 
     # Section 2 - Controller-Level Resource Usage
     pdf.add_page(orientation='L')
@@ -499,7 +534,7 @@ def resource(
     "Mem (Req)", "Mem (Lim)", 
     "ES (Req)", "ES (Lim)", "Flags"
     ]
-    pdf.add_table(df_controller, col_widths=[60, 25, 25, 25, 25, 25, 25, 25, 40])
+    pdf.add_table(df_controller, col_widths=[60, 25, 25, 25, 25, 25, 25, 25, 60])
 
     # Section 3 - Pod-Level Resource Usage
     pdf.add_page(orientation='L')
