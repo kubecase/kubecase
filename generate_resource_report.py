@@ -11,7 +11,7 @@ import os
 from collections import Counter
 
 app = typer.Typer()
-version = "1.2.0"
+version = "1.2.1"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbeReport(FPDF):
@@ -441,6 +441,25 @@ class PDFReport(FPDF):
           self.cell(0, 8, line, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
       self.ln(5)
 
+    def add_color_legend(self, title, items, col_widths=(20, 100)):
+        """
+        Draws a two-column legend box.
+        :param title: Title of the legend section (e.g. "Legend:")
+        :param items: List of tuples → (fill_color as (R,G,B), label text)
+        :param col_widths: Tuple of (color box width, label width)
+        """
+        self.set_font("Dejavu", "B", 11)
+        self.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.set_font("Dejavu", "", 10)
+
+        color_w, label_w = col_widths
+        for fill_color, label in items:
+            self.set_fill_color(*fill_color)
+            self.cell(color_w, 8, "", border=1, fill=True)
+            self.set_fill_color(255, 255, 255)  # reset for next cell
+            self.cell(label_w, 8, label, border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.ln(3)
+
     def section_title(self, title):
       self.set_font("Dejavu", 'B', 16)
       self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -468,10 +487,15 @@ class PDFReport(FPDF):
 
           # --- Determine fill color based on Usage (%) ---
           try:
+              resource_name = row.get("Resource", "")
               usage = float(row.get("Usage (%)", 0))
           except (ValueError, TypeError):
               usage = 0
 
+          if resource_name == "resourcequotas":
+              # Special case for resourcequotas
+              self.set_fill_color(255, 255, 255)  # default white
+              text_color = (0, 0, 0)
           if usage >= 90:
               self.set_fill_color(255, 0, 0)  # red
               text_color = (255, 255, 255)
@@ -548,6 +572,14 @@ def resource(
     # Section 1 - ResourceQuota Summary
     pdf.add_page(orientation='L')
     pdf.section_title("Section 1: ResourceQuota Summary")
+    legend_items_section1 = [
+    ((255, 255, 255), "Usage < 70% (Normal)"),
+    ((255, 255, 153), "Usage ≥ 70% (Caution)"),
+    ((255, 0, 0),   "Usage ≥ 90% (Critical)"),
+    ((220, 220, 255), "Warning: If flags were set"),  # Pale lavender for Flags row
+    ((255, 255, 255), "resourcequotas (Expected 1/1 count)")
+    ]
+    pdf.add_color_legend("Legend", legend_items_section1)
     pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40, 40])
 
     # Section 2 - Controller-Level Resource Usage
