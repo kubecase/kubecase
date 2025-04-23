@@ -576,7 +576,7 @@ def resource(
     for pod_name, df in container_data.items():
       pdf.add_table_with_flag_rows(
         df,
-        col_widths=[60, 25, 25, 25, 25, 25, 25, 25],  # Adjust based on your columns
+        col_widths=[80, 25, 25, 25, 25, 25, 25, 25],  # Adjust based on your columns
         title=f"{pod_name}"
       )
       pdf.add_page(orientation='L')
