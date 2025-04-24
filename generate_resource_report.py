@@ -624,11 +624,6 @@ class PDFReport(FPDF):
                 
                 row_height = max(row_height, est_height)
 
-                # Debug logs (optional)
-                print(f"[{wrap_col}] Text: {text}")
-                print(f"[{wrap_col}] Width: {string_width:.2f}mm, Column: {col_width}mm")
-                print(f"[{wrap_col}] Estimated lines: {estimated_lines}, Height: {est_height}")
-
           # Check if row fits on current page
           if self.get_y() + row_height + 10 > self.page_break_trigger:
               self.add_page(orientation=self.cur_orientation)
