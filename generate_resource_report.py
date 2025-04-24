@@ -5,6 +5,7 @@ from collections import defaultdict
 import pandas as pd
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
+from fpdf.outline import TableOfContents
 from datetime import datetime
 import typer
 import os
@@ -12,7 +13,7 @@ from collections import Counter
 import math
 
 app = typer.Typer()
-version = "1.2.1"
+version = "1.3.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbeReport(FPDF):
@@ -342,6 +343,66 @@ def get_container_details(pods_json):
 
 # ------------------------- PDF Class ------------------------- #
 class PDFReport(FPDF):
+    def __init__(self):
+        super().__init__()
+        self.add_font("Dejavu", "", "fonts/DejaVuSansCondensed.ttf")
+        self.add_font("Dejavu", "B", "fonts/DejaVuSansCondensed-Bold.ttf")
+
+    def homepage(self, cluster_name, namespace, pods_json):
+        self.add_page()
+        self.start_section(name="Namespace Overview", level=0)
+        self.add_metadata_table(
+            cluster=cluster_name,
+            namespace=namespace,
+            owners=get_total_owners(pods_json),
+            pods=get_total_pods(pods_json),
+            containers=get_total_containers(pods_json),
+            timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
+        )
+        # Add image
+        self.image("mascot.png", x=(self.w - 100)/2, y=150, w=100)  
+        self.ln(115)
+        self.set_font("Dejavu", 'B', 16)
+        self.cell(0, 20, "\"Sniffing configs, one line at a time\"", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+        self.set_font("Dejavu", '', 16)
+        self.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+
+    def section1(self, df_quota):
+        self.add_page(orientation='L')
+        self.start_section(name="Section 1: ResourceQuota Summary", level=0)
+
+        self.section_title("Section 1: ResourceQuota Summary")
+        legend_items_section1 = [
+        ((255, 255, 255), "Usage < 70% (Normal)"),
+        ((255, 255, 153), "Usage ≥ 70% (Caution)"),
+        ((255, 0, 0),   "Usage ≥ 90% (Critical)"),
+        ((220, 220, 255), "Warning: If flags were set"),  # Pale lavender for Flags row
+        ((255, 255, 255), "resourcequotas (Expected 1/1 count)")
+        ]
+        self.add_color_legend("Legend", legend_items_section1)
+        self.add_table_with_flag_rows(df_quota, col_widths=[100, 60, 60, 60], highlight_usage=True)
+
+    def section2(self, df_pods):
+        self.add_page(orientation='L')
+        self.start_section(name="Section 2: Controller-Level Resource Usage" , level=0)
+        self.section_title("Section 2: Controller-Level Resource Usage")
+        
+        legend_items_section2 = [
+        ((255, 255, 255), "Req = Requested value"),
+        ((255, 255, 255), "Lim = Limit value"),
+        ((255, 255, 255), "ES = Ephemeral Storage"),
+        ((220, 220, 255), "Warning: If flags were set")  # Pale lavender for Flags row
+        ]
+        self.add_color_legend("Legend", legend_items_section2)
+
+        df_pods.columns = [
+        "Controller", "Pods", 
+        "CPU (Req)", "CPU (Lim)", 
+        "Mem (Req)", "Mem (Lim)", 
+        "ES (Req)", "ES (Lim)", "Flags"
+        ]
+        self.add_table_with_flag_rows(df_pods, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
+
     def header(self):
         if self.page_no() == 1:
             self.ln(15)
@@ -580,73 +641,26 @@ def resource(
     except subprocess.CalledProcessError:
         cluster_name = "Unknown"
 
-
+    # Fetching data
     pods_json = get_pods(namespace)
     quota_json = get_resourcequota(namespace)
 
+    # Data Processing
     df_controller = aggregate_resources_by_controller(pods_json)
     df_controller = df_controller.round(2)
     df_quota = parse_quota(quota_json)
 
     # PDF Generation
     pdf = PDFReport()
-    pdf.add_font("Dejavu", "", "fonts/DejaVuSansCondensed.ttf")
-    pdf.add_font("Dejavu", "B", "fonts/DejaVuSansCondensed-Bold.ttf")
 
-    # Front Page
-    pdf.add_page()
-    pdf.add_metadata_table(
-        cluster=cluster_name,
-        namespace=namespace,
-        owners=get_total_owners(pods_json),
-        pods=get_total_pods(pods_json),
-        containers=get_total_containers(pods_json),
-        timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
-    )
-    # Add image
-    pdf.image("mascot.png", x=(pdf.w - 100)/2, y=150, w=100)  
-    pdf.ln(115)
-    pdf.set_font("Dejavu", 'B', 16)
-    pdf.cell(0, 20, "\"Sniffing configs, one line at a time\"", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
-    pdf.set_font("Dejavu", '', 16)
-    pdf.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+    # Homepage
+    pdf.homepage(cluster_name, namespace, pods_json)
 
     # Section 1 - ResourceQuota Summary
-    pdf.add_page(orientation='L')
-    pdf.section_title("Section 1: ResourceQuota Summary")
-    legend_items_section1 = [
-    ((255, 255, 255), "Usage < 70% (Normal)"),
-    ((255, 255, 153), "Usage ≥ 70% (Caution)"),
-    ((255, 0, 0),   "Usage ≥ 90% (Critical)"),
-    ((220, 220, 255), "Warning: If flags were set"),  # Pale lavender for Flags row
-    ((255, 255, 255), "resourcequotas (Expected 1/1 count)")
-    ]
-    pdf.add_color_legend("Legend", legend_items_section1)
-    pdf.add_table_with_flag_rows(df_quota, col_widths=[70, 40, 40, 40], highlight_usage=True)
+    pdf.section1(df_quota)
 
     # Section 2 - Controller-Level Resource Usage
-    pdf.add_page(orientation='L')
-    pdf.section_title("Section 2: Controller-Level Resource Usage")
-    legend_lines = [
-    "Req = Request",
-    "Lim = Limit",
-    "ES = Ephemeral Storage"
-    ]
-    legend_items_section_abbr = [
-    ((255, 255, 255), "Req = Requested value"),
-    ((255, 255, 255), "Lim = Limit value"),
-    ((255, 255, 255), "ES = Ephemeral Storage"),
-    ((220, 220, 255), "Warning: If flags were set")  # Pale lavender for Flags row
-    ]
-    pdf.add_color_legend("Legend", legend_items_section_abbr)
-
-    df_controller.columns = [
-    "Controller", "Pods", 
-    "CPU (Req)", "CPU (Lim)", 
-    "Mem (Req)", "Mem (Lim)", 
-    "ES (Req)", "ES (Lim)", "Flags"
-    ]
-    pdf.add_table_with_flag_rows(df_controller, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
+    pdf.section2(df_controller)
 
     # Section 3 - Pod-Level Resource Usage
     #pdf.add_page(orientation='L')
@@ -662,18 +676,16 @@ def resource(
     #  )
     #  pdf.add_page(orientation='L')  
 
-    # Create reports folder if it doesn't exist
+    # Save the PDF
     os.makedirs("reports", exist_ok=True)
-
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     out_path = f"reports/resource_report_{namespace}_{timestamp}.pdf"
-
+    
     try:
         pdf.output(out_path)
         typer.echo(f"✅ KubeCase Resource Report saved to {out_path}")
     except Exception as e:
         typer.echo(f"❌ Error saving PDF: {e}")
-
 
 if __name__ == "__main__":
     app()
