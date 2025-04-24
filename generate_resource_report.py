@@ -221,9 +221,14 @@ def get_container_details(pods_json):
             es_req = req.get("ephemeral-storage", "-")
             es_lim = lim.get("ephemeral-storage", "-")
 
-
             has_req = any([cpu_req != "-", mem_req != "-", es_req != "-"])
             has_lim = any([cpu_lim != "-", mem_lim != "-", es_lim != "-"])
+
+            if cpu_req != "-":
+                cpu_req_val, flag1 = parse_cpu(cpu_req)
+        
+            if cpu_lim != "-": 
+                cpu_lim_val, flag2 = parse_cpu(cpu_lim)
 
             # Flags
             flags = []
@@ -233,8 +238,10 @@ def get_container_details(pods_json):
                 flags.append("No requests")
             if cpu_lim == "-" and mem_lim == "-" and es_lim == "-":
                 flags.append("No limits")
-            if cpu_req != "-" and cpu_lim != "-" and cpu_req > cpu_lim:
+            if cpu_req != "-" and cpu_lim != "-" and cpu_req_val > cpu_lim_val:
                 flags.append("CPU req > lim")
+            if flag1 or flag2:
+                flags.append("Invalid CPU value")
 
             pod_containers.append({
                 "Container": name,
@@ -641,8 +648,6 @@ class PDFReport(FPDF):
             "QoS classes are assigned automatically, but they directly impact cluster stability and workload safety. "
             "Setting resource requests and limits is one of the simplest ways to improve Kubernetes reliability.\n"
         )
-
-
 
         # Set background fill
         pdf.set_fill_color(245, 245, 245)
