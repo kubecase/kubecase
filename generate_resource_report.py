@@ -16,7 +16,7 @@ from collections import Counter
 import io
 
 app = typer.Typer()
-version = "1.4.2"
+version = "1.5.0"
            
 # ---------------------- Helper Functions ---------------------- #
 def parse_cpu(cpu_str):
@@ -330,11 +330,52 @@ class PDFReport(FPDF):
         self.set_font("Dejavu", '', 16)
         self.cell(0, 10, f"KubeCase · https://github.com/kubecase/kubecase · v{version}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
+    def intro_page(self):
+        self.add_page()
+        self.section_title("Purpose")
+        self.set_font("Dejavu", '', 12)
+        self.write_paragraph("This report provides a comprehensive snapshot of container resource usage and "
+            "configuration within a Kubernetes namespace. Its purpose is to help platform engineers, developers, "
+            "and leadership understand how workloads are defined, how they interact with the cluster’s scheduling "
+            "and stability mechanisms, and whether they follow best practices.")
+        
+        self.section_title("What This Report Covers")
+        self.write_paragraph("Section 1: ResourceQuota Summary", font_style='B')
+        self.write_paragraph("Shows the total resource quotas assigned to the namespace and how much has been "
+            "requested so far. Highlights potential overuse or inefficiencies.\n")
+        
+        self.write_paragraph("Section 2: Controller-Level Resource Usage", font_style='B')
+        self.write_paragraph("Groups resource requests and limits by owner (Deployment, StatefulSet, etc.). "
+            "This helps identify which workloads are well configured and which may be missing limits, causing "
+            "cluster and app risk.\n")
+        
+        self.write_paragraph("Section 3: Pod-Level Resource Usage", font_style='B')
+        self.write_paragraph("Displays CPU, memory, and ephemeral storage requests and limits for every container. "
+            "Flags misconfigurations such as missing limits, missing requests, or containers that request more "
+            "than they’re limited to.\n")
+        
+        self.write_paragraph("Section 4: QoS Class Distribution", font_style='B')
+        self.write_paragraph("Visualizes how many pods are classified as Guaranteed, Burstable, or BestEffort. "
+            "This directly affects eviction priority and reliability. Includes a detailed explanation of what "
+            "each class means and why it matters.")
+
+        self.section_title("Why This Matters")
+        self.write_paragraph("Kubernetes is a powerful platform, but it requires careful configuration to ensure "
+            "stability and performance. Setting resource requests and limits correctly is one of the simplest "
+            "and most powerful ways to improve Kubernetes stability. This report surfaces the invisible "
+            "misconfigurations that can lead to poor performance, uneven node pressure, or unexpected pod "
+            "evictions. This report helps teams fix them before they become incidents.")
+
     def section1(self, df_quota):
         self.add_page(orientation='L')
         self.start_section(name="Section 1: ResourceQuota Summary", level=0)
-
         self.section_title("Section 1: ResourceQuota Summary")
+
+        if df_quota.empty:
+            self.set_font("Dejavu", 'B', 16)
+            self.cell(0, 15, "No ResourceQuotas found in this namespace.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            return
+
         legend_items_section1 = [
         ((255, 255, 255), "Usage < 80% (Normal)"),
         ((255, 255, 153), "Usage ≥ 80% (Caution)"),
@@ -392,8 +433,8 @@ class PDFReport(FPDF):
 
     def section4(self, df_pods):
         self.add_page(orientation='L')
-        self.start_section(name="Section 4: Visual Summary", level=0)
-        self.section_title("Section 4: Visual Summary")
+        self.start_section(name="Section 4: QoS Class Distribution", level=0)
+        self.section_title("Section 4: QoS Class Distribution")
 
         qos_chart = get_qos_chart(df_pods)
         self.image(qos_chart, x=20, y=45, w=120)
@@ -409,6 +450,11 @@ class PDFReport(FPDF):
             self.set_font("Dejavu", 'B', 18)
             self.cell(0, 10, "KubeCase Resource Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
             self.ln(5)
+
+    def write_paragraph(self, text, font_style='', font_size=12, spacing=5):
+        self.set_font("Dejavu", font_style, font_size)
+        self.write(spacing, text)
+        self.ln()
 
     def add_metadata_table(self, cluster, namespace, owners, pods, containers, timestamp):
         self.set_font("Dejavu", '', 16)
@@ -633,11 +679,11 @@ class PDFReport(FPDF):
         explanation_title = "Understanding Kubernetes QoS Classes"
         explanation_text = (
             "Guaranteed\n"
-            "• Every container in the pod has both CPU and memory requests and limits, and the values are exactly the same."
+            "• Every container in the pod has both CPU and memory requests and limits, and the values are exactly the same.\n"
             "• Gotcha: If just one container is missing a limit or the values don’t match, the pod drops out of this class.\n\n"
 
             "Burstable\n"
-            "• At least one container in the pod has resource requests or limits, but not all have full limits or matching values."
+            "• At least one container in the pod has resource requests or limits, but not all have full limits or matching values.\n"
             "• Gotcha: The whole pod can become less reliable if just one container is misconfigured, especially in multi-container setups.\n\n"
 
             "BestEffort\n"
@@ -678,6 +724,10 @@ def resource(
 
     # Fetching data
     pods_json = get_pods(namespace)
+    if not pods_json:
+        typer.echo("❌ No pods found in the specified namespace.")
+        raise typer.Exit()
+
     quota_json = get_resourcequota(namespace)
 
     # Data Processing
@@ -690,6 +740,9 @@ def resource(
 
     # Homepage
     pdf.homepage(cluster_name, namespace, pods_json)
+
+    # Intro Page
+    pdf.intro_page()
 
     # Section 1 - ResourceQuota Summary
     pdf.section1(df_quota)
