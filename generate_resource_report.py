@@ -16,7 +16,7 @@ from collections import Counter
 import io
 
 app = typer.Typer()
-version = "1.5.0"
+version = "1.5.1"
            
 # ---------------------- Helper Functions ---------------------- #
 def parse_cpu(cpu_str):
@@ -724,7 +724,9 @@ def resource(
 
     # Fetching data
     pods_json = get_pods(namespace)
-    if not pods_json:
+
+    # Check if pods_json is empty
+    if not pods_json.get("items"):
         typer.echo("❌ No pods found in the specified namespace.")
         raise typer.Exit()
 
