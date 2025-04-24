@@ -5,7 +5,6 @@ from collections import defaultdict
 import pandas as pd
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
-from fpdf.outline import TableOfContents
 from datetime import datetime
 import typer
 import os
@@ -16,7 +15,7 @@ from collections import Counter
 import io
 
 app = typer.Typer()
-version = "1.5.1"
+version = "1.5.2"
            
 # ---------------------- Helper Functions ---------------------- #
 def parse_cpu(cpu_str):
@@ -570,18 +569,20 @@ class PDFReport(FPDF):
       self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def add_table_with_flag_rows(self, dataframe, col_widths=None, title=None, highlight_usage=False):
+        # Defaults
+        line_height = 10
+        self.set_font("Dejavu", "", 10)
+
         if title:
             self.set_font("Dejavu", "B", 12)
             self.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             self.ln(2)
 
         self.set_font("Dejavu", "B", 10)
-        if col_widths is None:
-            col_widths = [40] * len(dataframe.columns)
-
-        # Draw header (excluding Flags)
         data_cols = [col for col in dataframe.columns if col != "Flags"]
         col_widths = col_widths or [40] * len(data_cols)
+
+        # Draw header row
         for i, col in enumerate(data_cols):
             self.set_fill_color(244, 246, 250)  # Light gray background
             self.cell(col_widths[i], 10, col, border=1, fill=True, align='C')
@@ -595,7 +596,6 @@ class PDFReport(FPDF):
           # --- Determine fill color based on Usage (%) ---
           resource_name = row.get("Resource", "")
           usage = float(row.get("Usage (%)", 0))
-
           if highlight_usage:
             if resource_name == "resourcequotas":
                 # Special case for resourcequotas
@@ -607,22 +607,27 @@ class PDFReport(FPDF):
             elif usage >= 80:
                 self.set_fill_color(255, 255, 153)  # yellow
                 text_color = (0, 0, 0)
-            else:
-                self.set_fill_color(255, 255, 255)  # white
-                text_color = (0, 0, 0)
-
             self.set_text_color(*text_color)
 
-          # STEP 1: Determine row height if wrapping controller
+          # Estimate row height
           row_height = 10  # default
-          line_height = 6
+          for wrap_col in ["Controller", "Container"]:
+            if wrap_col in data_cols:
+                idx = data_cols.index(wrap_col)
+                col_width = col_widths[idx] - 2  # reduce for padding
+                text = str(row[wrap_col])
+                
+                # Estimate the rendered string width in mm
+                string_width = self.get_string_width(text)
+                estimated_lines = math.ceil(string_width / col_width)
+                est_height = max(10, estimated_lines * line_height)
+                
+                row_height = max(row_height, est_height)
 
-          if "Controller" in data_cols:
-              controller_value = str(row["Controller"])
-              controller_width = col_widths[data_cols.index("Controller")] - 3
-              max_text_width = self.get_string_width(controller_value)
-              estimated_lines = math.ceil(max_text_width / controller_width)
-              row_height = estimated_lines * line_height
+                # Debug logs (optional)
+                print(f"[{wrap_col}] Text: {text}")
+                print(f"[{wrap_col}] Width: {string_width:.2f}mm, Column: {col_width}mm")
+                print(f"[{wrap_col}] Estimated lines: {estimated_lines}, Height: {est_height}")
 
           # Check if row fits on current page
           if self.get_y() + row_height + 10 > self.page_break_trigger:
@@ -647,7 +652,7 @@ class PDFReport(FPDF):
               value = f"{row[col]:.2f}" if isinstance(row[col], float) else str(row[col])
               col_width = col_widths[i]
 
-              if col.lower() == "controller":
+              if col in ["Controller", "Container"]:
                   # Draw wrapped controller column
                   x_start = self.get_x()
                   self.multi_cell(col_width, line_height, value, border=1)
