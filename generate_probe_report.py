@@ -314,7 +314,11 @@ def probe(
             for status in pod.get("status", {}).get("containerStatuses", []):
                 if status["name"] == container_name:
                     restart_time = get_restart_or_start_time(status)
-                    uptime = calculate_uptime(restart_time)
+                    print(f"Restart time: {restart_time}")  # Debugging line
+                    if restart_time is not "--":
+                        uptime = calculate_uptime(restart_time)
+                    else:
+                        uptime = "--"
                     restart_count = status.get("restartCount", 0)
                     last = status.get("lastState", {})
                     if "terminated" in last:
