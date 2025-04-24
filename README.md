@@ -47,10 +47,19 @@
 ## 📸 Example Output
 
 <p align="center">
-  <img src="docs/images/example_probe_cover.png" width="600" alt="Probe Report Sample"/>
+  <img src="docs/images/example_probe_cover.png" width="600" alt="Probe Report Front Page"/>
 </p>
 <p align="center">
-  <img src="docs/images/example_probe_deployment.png?" width="600" alt="Probe Report Sample"/>
+  <img src="docs/images/probe-report-section-1.png" width="600" alt="Probe Report Section 1"/>
+</p>
+<p align="center">
+  <img src="docs/images/resource-report-section-2.png" width="600" alt="Resource Report Section 2"/>
+</p>
+<p align="center">
+  <img src="docs/images/resource-report-section-3.png" width="600" alt="Resource Report Section 3"/>
+</p>
+<p align="center">
+  <img src="docs/images/resource-report-section-4.png" width="600" alt="Resource Report Section 4"/>
 </p>
 
 ---
