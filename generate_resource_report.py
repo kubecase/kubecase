@@ -16,99 +16,7 @@ from collections import Counter
 import io
 
 app = typer.Typer()
-version = "1.4.1"
-
-# ------------------------- PDF Class ------------------------- #
-class ProbeReport(FPDF):
-    def write_line(self, text):
-        self.set_font("Dejavu", '', 12)
-        self.multi_cell(0, 8, text)
-
-    def header(self):
-        if self.page_no() == 1:
-            self.ln(15)
-            self.set_font("Dejavu", 'B', 35)
-            self.cell(0, 15, "KubeCase Probe Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
-            self.ln(30)
-        else:
-            self.set_font("Dejavu", 'B', 18)
-            self.cell(0, 10, "KubeCase Probe Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
-            self.ln(5)
-            
-    def section_title(self, title):
-        self.set_font("Dejavu", 'B', 16)
-        self.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-    def pod_title(self, pod_name):
-        self.set_font("Dejavu", 'B', 12)
-        self.cell(0, 5, f"Pod: {pod_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        self.ln(1)
-
-    def write_table(self, headers, rows):
-        col_widths = [35, 25, 20, 20, 20, 40, 40, 80]
-        #col_widths = [self.w * width / sum(col_widths) for width in col_widths]
-        self.set_font("Dejavu", 'B', 10)
-
-        for i, header in enumerate(headers):
-            self.cell(col_widths[i], 8, header, border=1)
-        self.ln()
-
-        self.set_font("Dejavu", '', 9)
-        for row in rows:
-            restart_count_raw = row[4].split()[0]
-            restart_count = int(restart_count_raw) if restart_count_raw.isdigit() else 0
-
-            # Determine fill color
-            if restart_count > 0:
-                self.set_fill_color(255, 255, 153)  # yellow
-            else:
-                self.set_fill_color(255, 255, 255)  # white
-
-            # IF POD IS NOT READY
-            # self.set_fill_color(255, 102, 102)  # red
-
-            for i, item in enumerate(row):
-                self.cell(col_widths[i], 8, str(item), border=1, fill=True)
-            self.ln()
-        self.ln(3)
-
-    def write_paragraph(self, text, font_style='', font_size=12, spacing=5):
-        self.set_font("Dejavu", font_style, font_size)
-        self.write(spacing, text)
-        self.ln()
-
-    def write_code_block(self, code_text):
-        self.ln(2)
-        self.set_font("Courier", '', 10)
-        self.set_fill_color(240, 240, 240)
-        self.cell(0, 10, code_text, fill=True, border=1)
-        self.ln(12)
-
-    def add_section_divider(self, title, restarts_summary=None):
-        self.add_page(orientation="L")
-        
-        # Title
-        self.set_font("DejaVu", 'B', 26)
-        self.set_text_color(220, 50, 32)  # Red tone
-        self.cell(0, 40, title, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-        self.set_text_color(0, 0, 0)  # Reset to black
-        self.set_font("DejaVu", '', 16)
-
-        # Creating Table
-        self.set_fill_color(244, 246, 250)  # Light gray background
-
-        # Set column width and center table
-        label_width = 100
-        value_width = self.w - 2 * self.l_margin - label_width
-
-        for label, value in restarts_summary:
-            self.set_font("Dejavu", 'B', 16)
-            self.cell(label_width, 10, label, border=1, fill=True)
-            self.set_font("Dejavu", '', 16)
-            self.cell(value_width, 10, value, border=1)
-            self.ln()
-
+version = "1.4.2"
            
 # ---------------------- Helper Functions ---------------------- #
 def parse_cpu(cpu_str):
@@ -478,7 +386,7 @@ class PDFReport(FPDF):
         self.section_title("Section 4: Visual Summary")
 
         qos_chart = get_qos_chart(df_pods)
-        self.image(qos_chart, x=20, y=45, w=130)  # Adjust size as needed
+        self.image(qos_chart, x=20, y=45, w=120)  # Adjust size as needed
 
     def header(self):
         if self.page_no() == 1:
