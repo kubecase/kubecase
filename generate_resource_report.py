@@ -13,7 +13,7 @@ from collections import Counter
 import math
 
 app = typer.Typer()
-version = "1.3.0"
+version = "1.4.0"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbeReport(FPDF):
@@ -373,8 +373,8 @@ class PDFReport(FPDF):
 
         self.section_title("Section 1: ResourceQuota Summary")
         legend_items_section1 = [
-        ((255, 255, 255), "Usage < 70% (Normal)"),
-        ((255, 255, 153), "Usage ≥ 70% (Caution)"),
+        ((255, 255, 255), "Usage < 80% (Normal)"),
+        ((255, 255, 153), "Usage ≥ 80% (Caution)"),
         ((255, 0, 0),   "Usage ≥ 90% (Critical)"),
         ((220, 220, 255), "Warning: If flags were set"),  # Pale lavender for Flags row
         ((255, 255, 255), "resourcequotas (Expected 1/1 count)")
@@ -402,6 +402,31 @@ class PDFReport(FPDF):
         "ES (Req)", "ES (Lim)", "Flags"
         ]
         self.add_table_with_flag_rows(df_pods, col_widths=[120, 15, 22, 22, 25, 25, 25, 25])
+
+    def section3(self, df_pods):
+        self.add_page(orientation='L')
+        self.start_section(name="Section 3: Pod-Level Resource Usage", level=0)
+        self.section_title("Section 3: Pod Level Resource Usage")
+
+        legend_items_section3 = [
+        ((255, 255, 255), "Req = Requested value"),
+        ((255, 255, 255), "Lim = Limit value"),
+        ((255, 255, 255), "ES = Ephemeral Storage"),
+        ((220, 220, 255), "Warning: If flags were set")  # Pale lavender for Flags row
+        ]
+        self.add_color_legend("Legend", legend_items_section3)
+
+        container_data = get_container_details(df_pods)
+        for pod_name, df in container_data.items():
+          self.add_table_with_flag_rows(
+           df,
+           col_widths=[98, 26, 26, 26, 26, 26, 26, 26],
+           title=f"{pod_name}"
+          )
+          # Add a new page for each pod except the last one
+          if pod_name != list(container_data.keys())[-1]:
+            self.add_page(orientation='L')
+
 
     def header(self):
         if self.page_no() == 1:
@@ -663,18 +688,7 @@ def resource(
     pdf.section2(df_controller)
 
     # Section 3 - Pod-Level Resource Usage
-    #pdf.add_page(orientation='L')
-    #pdf.section_title("Section 3: Pod Level Resource Usage")
-    #pdf.add_legend(legend_lines, title="Legend")
-    #container_data = get_container_details(pods_json)
-
-    #for pod_name, df in container_data.items():
-    #  pdf.add_table_with_flag_rows(
-    #   df,
-    #    col_widths=[80, 25, 25, 25, 25, 25, 25, 25],  # Adjust based on your columns
-    #    title=f"{pod_name}"
-    #  )
-    #  pdf.add_page(orientation='L')  
+    pdf.section3(pods_json)
 
     # Save the PDF
     os.makedirs("reports", exist_ok=True)
