@@ -295,6 +295,8 @@ def get_qos_chart(pods_json):
 
     return buf
 
+
+
 # ------------------------- PDF Class ------------------------- #
 class PDFReport(FPDF):
     def __init__(self):
@@ -387,7 +389,8 @@ class PDFReport(FPDF):
         self.section_title("Section 4: Visual Summary")
 
         qos_chart = get_qos_chart(df_pods)
-        self.image(qos_chart, x=20, y=45, w=120)  # Adjust size as needed
+        self.image(qos_chart, x=20, y=45, w=120)
+        self.add_qos_explanation_box(x=150, y=45, w=130)
 
     def header(self):
         if self.page_no() == 1:
@@ -616,6 +619,46 @@ class PDFReport(FPDF):
             self.ln()
             self.set_font("Dejavu", "", 10)
 
+    def add_qos_explanation_box(pdf, x=10, y=160, w=180):
+        """
+        Adds a stylized explanation box to the PDF to help readers understand Kubernetes QoS classes.
+        """
+        explanation_title = "Understanding Kubernetes QoS Classes"
+        explanation_text = (
+            "Guaranteed\n"
+            "• Every container in the pod has both CPU and memory requests and limits, and the values are exactly the same."
+            "• Gotcha: If just one container is missing a limit or the values don’t match, the pod drops out of this class.\n\n"
+
+            "Burstable\n"
+            "• At least one container in the pod has resource requests or limits, but not all have full limits or matching values."
+            "• Gotcha: The whole pod can become less reliable if just one container is misconfigured, especially in multi-container setups.\n\n"
+
+            "BestEffort\n"
+            "• No container in the pod has any resource requests or limits defined.\n"
+            "• Gotcha: These pods get zero guaranteed CPU or memory, and can overconsume or get starved.\n\n"
+
+            "Why This Graph Matters\n"
+            "QoS classes are assigned automatically, but they directly impact cluster stability and workload safety. "
+            "Setting resource requests and limits is one of the simplest ways to improve Kubernetes reliability.\n"
+        )
+
+
+
+        # Set background fill
+        pdf.set_fill_color(245, 245, 245)
+
+        # Title box
+        pdf.set_xy(x, y)
+        pdf.set_font("Dejavu", "B", 12)
+        pdf.cell(w, 10, explanation_title, border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True, align="C")
+
+        # Text content box
+        pdf.set_font("Dejavu", "", 10)
+        pdf.set_xy(x, y + 10)
+        pdf.multi_cell(w, 6, explanation_text, border=1, fill=False)
+
+        return pdf.get_y()
+    
 # ---------------------- Main Command ---------------------- #
 @app.command()
 def resource(
