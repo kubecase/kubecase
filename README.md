@@ -12,7 +12,7 @@
 
 ---
 
-## ✨ Features (v1.0)
+## ✨ Features (v2.0)
 
 ### 🔍 Probe Report (PDF)
 - Analyzes **startup**, **liveness**, and **readiness** probes
@@ -21,10 +21,24 @@
 - Includes cluster name, namespace, and summary
 - Beautiful PDF layout with mascot, tables, and analysis
 
+### 📊 Resource Requests & Limits Report (NEW!)
+- **Namespace-wide quota summary**: shows total CPU, memory, and ephemeral storage allocations vs usage
+- **Controller-level breakdown**: aggregates usage by owner (e.g., Deployment, StatefulSet)
+- **Container-level insight**: detailed view of requests/limits per container with flags for missing or invalid configs
+- **QoS Class analysis**:
+  - Pie chart distribution (Guaranteed, Burstable, BestEffort)
+  - Executive-friendly explanation of why QoS matters
+- **Misconfiguration detection**:
+  - CPU request > limit
+  - Missing limits/requests
+  - Memory request using incorrect `m` suffix (flagged)
+- **Color-coded usage highlights** (Yellow ≥ 80%, Red ≥ 90%)
+- **Multi-line wrapping support** for long Controller and Container names
+- **Smart page breaks** with persistent headers
+- **Early exit handling** if namespace has no pods (avoids generating empty reports)
+
 **Coming Soon:**
-- 🧠 Resource Requests & Limits Report
 - 🛡️ Pod Disruption Budget (PDB) Analyzer
-- 📊 Resource Quota Visualizer
 - 🔐 RBAC Relationship Viewer
 - 🌐 Network Policy Inspector
 
@@ -54,7 +68,10 @@ source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
 
 # Run a probe report
-python3 src/generate_probe_report.py -n my-namespace
+python generate_probe_report.py -n my-namespace
+
+# Run a resource report
+python generate_resource_report.py -n my-namespace
 ```
 
 ## 🧩 Requirements
