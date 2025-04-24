@@ -11,9 +11,12 @@ import typer
 import os
 from collections import Counter
 import math
+import matplotlib.pyplot as plt
+from collections import Counter
+import io
 
 app = typer.Typer()
-version = "1.4.0"
+version = "1.4.1"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbeReport(FPDF):
@@ -341,6 +344,48 @@ def get_container_details(pods_json):
 
     return grouped_details
 
+def get_qos_chart(pods_json):
+    qos_data = {
+        "Guaranteed": 0,
+        "Burstable": 0,
+        "BestEffort": 0,
+        "Unknown": 0
+    }
+
+    for pod in pods_json["items"]:
+        qos = pod["status"].get("qosClass", "Unknown")
+        qos_data[qos] += 1
+
+    # Prepare data for pie chart
+    labels = []
+    values = []
+    for key, value in qos_data.items():
+        if value > 0:
+            labels.append(key)
+            values.append(value)
+
+    total = sum(values)
+
+    # Build POD count summary string
+    summary_parts = [f"{key}: {qos_data[key]}" for key in labels]
+    summary_text = "PODS\n" + "\n ".join(summary_parts)
+
+    # Generate pie chart
+    fig, ax = plt.subplots()
+    ax.pie(values, labels=labels, autopct="%d%%", startangle=90)
+    ax.set_title("QoS Class Distribution")
+
+    # Add slice count text below the pie
+    ax.text(0, -2, summary_text, ha='center', fontsize=12)
+
+    # Save to a buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+
+    return buf
+
 # ------------------------- PDF Class ------------------------- #
 class PDFReport(FPDF):
     def __init__(self):
@@ -427,6 +472,13 @@ class PDFReport(FPDF):
           if pod_name != list(container_data.keys())[-1]:
             self.add_page(orientation='L')
 
+    def section4(self, df_pods):
+        self.add_page(orientation='L')
+        self.start_section(name="Section 4: Visual Summary", level=0)
+        self.section_title("Section 4: Visual Summary")
+
+        qos_chart = get_qos_chart(df_pods)
+        self.image(qos_chart, x=20, y=45, w=130)  # Adjust size as needed
 
     def header(self):
         if self.page_no() == 1:
@@ -648,11 +700,12 @@ class PDFReport(FPDF):
 
           # Flags row
           if str(row["Flags"]) != "OK":
-            self.set_font("Dejavu", "B", 9)
+            self.set_font("Dejavu", "B", 10)
             self.set_fill_color(220, 220, 255)  # Pale lavender for Flags row
             flags_text = "Flags: " + str(row["Flags"])
             self.cell(sum(col_widths), 10, flags_text, border=1, fill=True)
             self.ln()
+            self.set_font("Dejavu", "", 10)
 
 # ---------------------- Main Command ---------------------- #
 @app.command()
@@ -689,6 +742,9 @@ def resource(
 
     # Section 3 - Pod-Level Resource Usage
     pdf.section3(pods_json)
+
+    # Section 4 - Visual Summary
+    pdf.section4(pods_json)
 
     # Save the PDF
     os.makedirs("reports", exist_ok=True)
