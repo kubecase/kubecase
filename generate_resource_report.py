@@ -276,7 +276,7 @@ def get_qos_chart(pods_json):
 
     # Build POD count summary string
     summary_parts = [f"{key}: {qos_data[key]}" for key in labels]
-    summary_text = "PODS\n" + "\n ".join(summary_parts)
+    summary_text = ", ".join(summary_parts)
 
     # Generate pie chart
     fig, ax = plt.subplots()
@@ -284,6 +284,7 @@ def get_qos_chart(pods_json):
     ax.set_title("QoS Class Distribution")
 
     # Add slice count text below the pie
+    ax.text(0, -1.8, "PODS", ha='center', fontsize=12, fontweight='bold')
     ax.text(0, -2, summary_text, ha='center', fontsize=12)
 
     # Save to a buffer
