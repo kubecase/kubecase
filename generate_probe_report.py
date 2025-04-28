@@ -11,7 +11,7 @@ import typer
 import os
 
 app = typer.Typer()
-version = "1.6.0"
+version = "1.6.1"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
@@ -180,30 +180,34 @@ def calculate_uptime(last_seen_running_str):
     Returns:
         str: The uptime in a human-readable format.
     """
-    # Parse the last seen running timestamp string into a datetime object
-    last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S")
 
-    # Get the current timestamp
-    current_timestamp = datetime.now()
+    try:
+        # Parse the last seen running timestamp string into a datetime object
+        last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S")
 
-    # Calculate the uptime
-    uptime = current_timestamp - last_seen_running
+        # Get the current timestamp
+        current_timestamp = datetime.now()
 
-    # Convert uptime to human-readable format
-    days = uptime.days
-    hours, remainder = divmod(uptime.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
+        # Calculate the uptime
+        uptime = current_timestamp - last_seen_running
 
-    uptime_str = ""
-    if days > 0:
-        uptime_str += f"{days} days, "
-    if hours > 0:
-        uptime_str += f"{hours} hours, "
-    if minutes > 0:
-        uptime_str += f"{minutes} minutes, "
-    uptime_str += f"{seconds} seconds"
+        # Convert uptime to human-readable format
+        days = uptime.days
+        hours, remainder = divmod(uptime.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
 
-    return uptime_str
+        uptime_str = ""
+        if days > 0:
+            uptime_str += f"{days} days, "
+        if hours > 0:
+            uptime_str += f"{hours} hours, "
+        if minutes > 0:
+            uptime_str += f"{minutes} minutes, "
+        uptime_str += f"{seconds} seconds"
+
+        return uptime_str
+    except ValueError:
+        return "--"  # Return "--" if container is not running
 
 def get_restarted_owners(owners_data):
     restarted = defaultdict(lambda: defaultdict(list))
