@@ -1,1 +1,30 @@
-reports/*
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+*.swp
+
+# Ignore MacOS artifacts
+.DS_Store
+
+# Ignore Python package builds (if you package later)
+build/
+dist/
+*.egg-info/
+
+# Ignore logs
+*.log
+
+# PDFs
+/reports/*
+*.pdf

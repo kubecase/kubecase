@@ -14,16 +14,13 @@ import matplotlib.pyplot as plt
 from collections import Counter
 import io
 
+# Import custom modules
+import kubecase.utils as utils
+
 app = typer.Typer()
 version = "1.0.0"
            
 # ---------------------- Helper Functions ---------------------- # 
-def get_pods(namespace):
-    """Fetch all pods in the given namespace."""
-    cmd = ["kubectl", "get", "pods", "-n", namespace, "-o", "json"]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)["items"]
-
 def get_pdbs(namespace):
     """Fetch all PDBs in the given namespace."""
     cmd = ["kubectl", "get", "pdb", "-n", namespace, "-o", "json"]
@@ -416,13 +413,11 @@ def resource(
 ):
     typer.echo(f"🔍 Generating KubeCase Pod Disruption Budget Report for namespace: {namespace}")
 
-    try:
-        cluster_name = subprocess.check_output(["kubectl", "config", "current-context"], text=True).strip()
-    except subprocess.CalledProcessError:
-        cluster_name = "Unknown"
-
     # Fetching data
-    pods_json = get_pods(namespace)
+    cluster_name = utils.get_current_context()
+    pods_json = utils.get_pods(namespace)
+
+
     pdbs_json = get_pdbs(namespace)
 
     # Check if pods_json is empty
