@@ -116,7 +116,6 @@ pip install git+https://github.com/yourusername/kubecase.git
 ```
 
 Then run:
-You can install directly via pip from GitHub:
 ```bash
 kubecase generate -n my-namespace -r resource
 ```
