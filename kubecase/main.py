@@ -4,7 +4,7 @@ from kubecase import VERSION, generate_pdb_report, generate_probe_report, genera
 
 app = typer.Typer(help="KubeCase - Kubernetes Troubleshooting Reports")
 app = typer.Typer(
-    help="🕵️‍♂️ KubeCase CLI - Live Kubernetes Troubleshooting and Reporting for Kubernetes Clusters",
+    help="KubeCase CLI - Live Kubernetes Troubleshooting and Reporting for Kubernetes Clusters",
     add_completion=False
 )
 
