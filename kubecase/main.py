@@ -43,7 +43,9 @@ def list_reports():
     List all available report types.
     """
     typer.echo("🗂️  Available Reports:")
-    typer.echo("-pdb      ➔ Pod Disruption Budget Coverage")
+    typer.echo(" probe    ➔ Probe Report Coverage")
+    typer.echo(" resource ➔ Resource Report Coverage")
+    typer.echo(" pdb      ➔ Pod Disruption Budget Coverage")
 
 
 if __name__ == "__main__":
