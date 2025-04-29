@@ -1,18 +1,13 @@
+# This script generates a PDF report for Kubernetes Pod Disruption Budgets (PDBs) in a specified namespace.
 
-import json
-import subprocess
-from collections import defaultdict
+# ---------------------- Imports ---------------------- #
 import pandas as pd
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from datetime import datetime
 import typer
 import os
-from collections import Counter
 import math
-import matplotlib.pyplot as plt
-from collections import Counter
-import io
 
 # Import custom modules
 import kubecase.utils as utils
