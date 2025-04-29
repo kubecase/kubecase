@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from collections import Counter
 import io
 
+import kubecase.utils as utils
+
 app = typer.Typer()
 version = "1.5.2"
            
@@ -307,8 +309,10 @@ def get_qos_chart(pods_json):
 class PDFReport(FPDF):
     def __init__(self):
         super().__init__()
-        self.add_font("Dejavu", "", "fonts/DejaVuSansCondensed.ttf")
-        self.add_font("Dejavu", "B", "fonts/DejaVuSansCondensed-Bold.ttf")
+        font_path_regular = utils.get_font_path("DejaVuSansCondensed.ttf")
+        font_path_bold = utils.get_font_path("DejaVuSansCondensed-Bold.ttf")
+        self.add_font("Dejavu", "", font_path_regular)
+        self.add_font("Dejavu", "B", font_path_bold)
 
     def homepage(self, cluster_name, namespace, pods_json):
         self.add_page()

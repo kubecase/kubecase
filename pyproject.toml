@@ -22,3 +22,6 @@ kubecase = "kubecase.main:app"
 
 [tool.setuptools]
 packages = ["kubecase"]
+
+[tool.setuptools.package-data]
+kubecase = ["fonts/*.ttf"]

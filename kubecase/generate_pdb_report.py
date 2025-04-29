@@ -70,8 +70,10 @@ def get_namespace_coverage(pods_list, pdbs_list):
 class PDFReport(FPDF):
     def __init__(self):
         super().__init__()
-        self.add_font("Dejavu", "", "fonts/DejaVuSansCondensed.ttf")
-        self.add_font("Dejavu", "B", "fonts/DejaVuSansCondensed-Bold.ttf")
+        font_path_regular = utils.get_font_path("DejaVuSansCondensed.ttf")
+        font_path_bold = utils.get_font_path("DejaVuSansCondensed-Bold.ttf")
+        self.add_font("Dejavu", "", font_path_regular)
+        self.add_font("Dejavu", "B", font_path_bold)
 
     def homepage(self, cluster_name, namespace, pods, pdbs):
         self.add_page()

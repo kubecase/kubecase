@@ -9,6 +9,7 @@ Created: 2023-10-01
 
 import subprocess
 import json
+import importlib.resources
 
 def run_kubectl(cmd, timeout_seconds=10, parse_json=True):
     """
@@ -86,3 +87,11 @@ def get_pdbs(namespace):
     cmd = ["kubectl", "get", "pdb", "-n", namespace, "-o", "json"]
     data = run_kubectl(cmd)
     return data.get("items", [])
+
+def get_font_path(font_filename: str) -> str:
+    """
+    Safely get the path to a bundled font file inside the kubecase/fonts/ directory.
+    Works in editable installs and in packaged installs.
+    """
+    font_path = importlib.resources.files("kubecase").joinpath(f"fonts/{font_filename}")
+    return str(font_path)

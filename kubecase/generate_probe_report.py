@@ -9,12 +9,20 @@ import subprocess
 import json
 import typer
 import os
+import kubecase.utils as utils
 
 app = typer.Typer()
 version = "1.6.1"
 
 # ------------------------- PDF Class ------------------------- #
 class ProbePDF(FPDF):
+    def __init__(self):
+        super().__init__()
+        font_path_regular = utils.get_font_path("DejaVuSansCondensed.ttf")
+        font_path_bold = utils.get_font_path("DejaVuSansCondensed-Bold.ttf")
+        self.add_font("Dejavu", "", font_path_regular)
+        self.add_font("Dejavu", "B", font_path_bold)
+
     def write_line(self, text):
         self.set_font("Dejavu", '', 12)
         self.multi_cell(0, 8, text)
@@ -362,8 +370,6 @@ def run(namespace: str):
 
     # PDF Generation
     pdf = ProbePDF()
-    pdf.add_font("Dejavu", "", "fonts/DejaVuSansCondensed.ttf")
-    pdf.add_font("Dejavu", "B", "fonts/DejaVuSansCondensed-Bold.ttf")
 
     # Front Page
     pdf.add_page()
