@@ -88,6 +88,28 @@ def get_pdbs(namespace):
     data = run_kubectl(cmd)
     return data.get("items", [])
 
+def get_total_owners(pods_list):
+    """
+    Count the number of unique owners for a list of pods.
+
+    Args:
+        pods_list (List[dict]): List of pod objects.
+
+    Returns:
+        int: Number of unique owners.
+    """
+    
+    owners = set()
+    for pod in pods_list:
+        owner_refs = pod["metadata"].get("ownerReferences", [])
+        if owner_refs:
+            owner_name = owner_refs[0]['name']
+            owner_group = "-".join(owner_name.split("-")[:-1]) or owner_name
+        else:
+            owner_group = "standalone/" + pod["metadata"]["name"]
+        owners.add(owner_group)
+    return len(owners)
+
 def get_font_path(font_filename: str) -> str:
     """
     Safely get the path to a bundled font file inside the kubecase/fonts/ directory.
