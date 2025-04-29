@@ -15,7 +15,7 @@ def generate(
     """
     
     if report == "pdb":
-        typer.echo(f"📋 Generating Pod Disruption Budget Report for namespace '{namespace}'...")
+        typer.echo(f"📋 Generating KubeCase Pod Disruption Budget Report for namespace '{namespace}'...")
         generate_pdb_report.run(namespace)
     else:
         typer.secho(f"❌ Unknown report type: {report}", fg=typer.colors.RED)
