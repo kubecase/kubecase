@@ -1,6 +1,6 @@
 # main.py
 import typer
-from kubecase import VERSION, generate_pdb_report, generate_probe_report
+from kubecase import VERSION, generate_pdb_report, generate_probe_report, generate_resource_report
 
 app = typer.Typer(help="KubeCase - Kubernetes Troubleshooting Reports")
 app = typer.Typer(
@@ -30,6 +30,9 @@ def generate(
     elif report == "probe":
         typer.echo(f"📋 Generating KubeCase Probe Report for namespace '{namespace}'...")
         generate_probe_report.run(namespace)
+    elif report == "resource":
+        typer.echo(f"📋 Generating KubeCase Resource Report for namespace '{namespace}'...")
+        generate_resource_report.run(namespace)
     else:
         typer.secho(f"❌ Unknown report type: {report}", fg=typer.colors.RED)
         raise typer.Exit(code=1)

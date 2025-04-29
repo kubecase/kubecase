@@ -711,11 +711,10 @@ class PDFReport(FPDF):
         return pdf.get_y()
     
 # ---------------------- Main Command ---------------------- #
-@app.command()
-def resource(
-    namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace to analyze")
-):
-    typer.echo(f"🔍 Generating KubeCase Resource Report for namespace: {namespace}")
+def run(namespace: str):
+    """
+    Generates the KubeCase Resource Report for the given namespace.
+    """
 
     try:
         cluster_name = subprocess.check_output(["kubectl", "config", "current-context"], text=True).strip()
@@ -768,6 +767,3 @@ def resource(
         typer.echo(f"✅ KubeCase Resource Report saved to {out_path}")
     except Exception as e:
         typer.echo(f"❌ Error saving PDF: {e}")
-
-if __name__ == "__main__":
-    app()
