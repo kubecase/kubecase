@@ -1,9 +1,20 @@
 # main.py
-
 import typer
-from kubecase import generate_pdb_report
+from kubecase import VERSION, generate_pdb_report
 
 app = typer.Typer(help="KubeCase - Kubernetes Troubleshooting Reports")
+app = typer.Typer(
+    help="🕵️‍♂️ KubeCase CLI - Live Kubernetes Troubleshooting and Reporting for Kubernetes Clusters",
+    add_completion=False
+)
+
+@app.command()
+def version():
+    """
+    Show current KubeCase CLI version.
+    """
+    typer.echo("📦 KubeCase CLI")
+    typer.echo(f"Version: {VERSION}")
 
 @app.command()
 def generate(
@@ -13,7 +24,6 @@ def generate(
     """
     Generate a troubleshooting report.
     """
-    
     if report == "pdb":
         typer.echo(f"📋 Generating KubeCase Pod Disruption Budget Report for namespace '{namespace}'...")
         generate_pdb_report.run(namespace)
