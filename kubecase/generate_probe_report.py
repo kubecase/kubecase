@@ -263,11 +263,10 @@ def get_pod_bootup_duration(pod):
             pass
 
 # ---------------------- Main Command ---------------------- #
-@app.command()
-def probe(
-    namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace to analyze")
-):
-    typer.echo(f"🔍 Generating KubeCase Probe Report for namespace: {namespace}")
+def run(namespace: str):
+    """
+    Generates the KubeCase Probe Report for the given namespace.
+    """
 
     try:
         cluster_name = subprocess.check_output(["kubectl", "config", "current-context"], text=True).strip()
@@ -318,8 +317,7 @@ def probe(
             for status in pod.get("status", {}).get("containerStatuses", []):
                 if status["name"] == container_name:
                     restart_time = get_restart_or_start_time(status)
-                    print(f"Restart time: {restart_time}")  # Debugging line
-                    if restart_time is not "--":
+                    if restart_time != "--":
                         uptime = calculate_uptime(restart_time)
                     else:
                         uptime = "--"
@@ -476,6 +474,3 @@ def probe(
         typer.echo(f"✅ KubeCase Probe Report saved to {out_path}")
     except Exception as e:
         typer.echo(f"❌ Error saving PDF: {e}")
-
-if __name__ == "__main__":
-    app()
