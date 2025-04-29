@@ -87,7 +87,8 @@ class PDFReport(FPDF):
             timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
         )
         # Add image
-        self.image("mascot.png", x=(self.w - 100)/2, y=150, w=100)  
+        mascot_path = utils.get_asset_path("mascot.png")
+        self.image(mascot_path, x=(self.w - 100)/2, y=150, w=100)  
         self.ln(115)
         self.set_font("Dejavu", 'B', 16)
         self.cell(0, 20, "\"Sniffing configs, one line at a time\"", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')

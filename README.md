@@ -2,7 +2,7 @@
 
 **Sniffing configs, one line at a time**  
 
-![KubeCase Mascot](mascot.png)
+![KubeCase Mascot](kubecase/assets/mascot.png)
 
 ---
 

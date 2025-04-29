@@ -95,3 +95,10 @@ def get_font_path(font_filename: str) -> str:
     """
     font_path = importlib.resources.files("kubecase").joinpath(f"fonts/{font_filename}")
     return str(font_path)
+
+def get_asset_path(asset_filename: str) -> str:
+    """
+    Safely get the path to a bundled asset file inside the kubecase/assets/ directory.
+    """
+    asset_path = importlib.resources.files("kubecase").joinpath(f"assets/{asset_filename}")
+    return str(asset_path)

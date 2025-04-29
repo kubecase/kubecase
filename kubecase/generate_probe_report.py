@@ -382,7 +382,8 @@ def run(namespace: str):
         timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     )
     # Add image
-    pdf.image("mascot.png", x=(pdf.w - 100)/2, y=150, w=100)  
+    mascot_path = utils.get_asset_path("mascot.png")
+    pdf.image(mascot_path, x=(pdf.w - 100)/2, y=150, w=100)  
     pdf.ln(115)
     pdf.set_font("Dejavu", 'B', 16)
     pdf.cell(0, 20, "\"Sniffing configs, one line at a time\"", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
