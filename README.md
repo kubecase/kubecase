@@ -21,7 +21,7 @@
 - Includes cluster name, namespace, and summary
 - Beautiful PDF layout with mascot, tables, and analysis
 
-### 📊 Resource Requests & Limits Report (NEW!)
+### 📊 Resource Requests & Limits Report (New!)
 - **Namespace-wide quota summary**: shows total CPU, memory, and ephemeral storage allocations vs usage
 - **Controller-level breakdown**: aggregates usage by owner (e.g., Deployment, StatefulSet)
 - **Container-level insight**: detailed view of requests/limits per container with flags for missing or invalid configs
@@ -37,8 +37,14 @@
 - **Smart page breaks** with persistent headers
 - **Early exit handling** if namespace has no pods (avoids generating empty reports)
 
+### 🛡️ Pod Disruption Budget (PDB) Report (Under Development!)
+- Calculates PDB coverage across all pods in the namespace
+- Lists pods not protected by a PDB (e.g., lone jobs, sidecars, overlooked deployments)
+- Simulates eviction scenarios: node reboots over time, constrained by PDB rules
+- Breaks down PDBs by controller and configuration (minAvailable, maxUnavailable)
+- Flags ineffective or overly restrictive PDBs that block upgrades
+
 **Coming Soon:**
-- 🛡️ Pod Disruption Budget (PDB) Analyzer
 - 🔐 RBAC Relationship Viewer
 - 🌐 Network Policy Inspector
 
@@ -71,16 +77,20 @@
 git clone https://github.com/kubecase/kubecase.git
 cd kubecase
 
-# Set up environment
+# Set up virtual environment
 python3 -m venv venv
 source venv/bin/activate  # or venv\Scripts\activate on Windows
-pip install -r requirements.txt
 
-# Run a probe report
-python generate_probe_report.py -n my-namespace
+# Install package (editable mode)
+pip install -e .
 
-# Run a resource report
-python generate_resource_report.py -n my-namespace
+# Generate a report using the CLI
+kubecase generate -n my-namespace -r probe      # Probe Report
+kubecase generate -n my-namespace -r resource   # Resource Report
+kubecase generate -n my-namespace -r pdb        # PDB Report
+
+# See available commands
+kubecase --help
 ```
 
 ## 🧩 Requirements
@@ -96,6 +106,20 @@ KubeCase aims to become the go-to Kubernetes diagnostics toolkit. It combines hu
   - Platform teams keep clusters healthy
   - App teams troubleshoot faster
   - Everyone understand their workloads better
+
+We believe powerful observability tools shouldn't require deep Prometheus or Grafana knowledge. They should be simple, visual, and explain themselves.
+
+## 📦 Installation (Alt via GitHub)
+You can install directly via pip from GitHub:
+```bash
+pip install git+https://github.com/yourusername/kubecase.git
+```
+
+Then run:
+You can install directly via pip from GitHub:
+```bash
+kubecase generate -n my-namespace -r resource
+```
 
 ## 👥 Contributing
 

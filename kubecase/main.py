@@ -13,7 +13,7 @@ def version():
     """
     Show current KubeCase CLI version.
     """
-    typer.echo("📦 KubeCase CLI")
+    typer.echo("🕵️‍♂️ KubeCase CLI")
     typer.echo(f"Version: {VERSION}")
 
 @app.command()
