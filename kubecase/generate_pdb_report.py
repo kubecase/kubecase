@@ -17,16 +17,10 @@ import io
 # Import custom modules
 import kubecase.utils as utils
 
-app = typer.Typer()
+# ---------------------- Constants ---------------------- #
 version = "1.0.0"
            
 # ---------------------- Helper Functions ---------------------- # 
-def get_pdbs(namespace):
-    """Fetch all PDBs in the given namespace."""
-    cmd = ["kubectl", "get", "pdb", "-n", namespace, "-o", "json"]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)["items"]
-
 def get_total_owners(pods_list):
     owners = set()
     for pod in pods_list:
@@ -407,18 +401,15 @@ class PDFReport(FPDF):
             self.set_font("Dejavu", "", 10)
     
 # ---------------------- Main Command ---------------------- #
-@app.command()
-def resource(
-    namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace to analyze")
-):
-    typer.echo(f"🔍 Generating KubeCase Pod Disruption Budget Report for namespace: {namespace}")
+def run(namespace: str):
+    """
+    Generates the Pod Disruption Budget (PDB) report for the given namespace.
+    """
 
     # Fetching data
     cluster_name = utils.get_current_context()
     pods_json = utils.get_pods(namespace)
-
-
-    pdbs_json = get_pdbs(namespace)
+    pdbs_json = utils.get_pdbs(namespace)
 
     # Check if pods_json is empty
     if len(pods_json) == 0:
@@ -447,6 +438,3 @@ def resource(
         typer.echo(f"✅ KubeCase Pod Disruption Budget Report saved to {out_path}")
     except Exception as e:
         typer.echo(f"❌ Error saving PDF: {e}")
-
-if __name__ == "__main__":
-    app()

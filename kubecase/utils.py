@@ -72,3 +72,17 @@ def get_pods(namespace):
     cmd = ["kubectl", "get", "pods", "-n", namespace, "-o", "json"]
     data = run_kubectl(cmd)
     return data.get("items", [])
+
+def get_pdbs(namespace):
+    """
+    Fetch all Pod Disruption Budgets (PDBs) in the specified namespace.
+
+    Args:
+        namespace (str): Kubernetes namespace name.
+
+    Returns:
+        List[dict]: List of PDB objects from the namespace. Returns an empty list if an error occurs.
+    """
+    cmd = ["kubectl", "get", "pdb", "-n", namespace, "-o", "json"]
+    data = run_kubectl(cmd)
+    return data.get("items", [])
