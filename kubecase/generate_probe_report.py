@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil import parser
 from collections import defaultdict
 from fpdf import FPDF
@@ -191,10 +191,10 @@ def calculate_uptime(last_seen_running_str):
 
     try:
         # Parse the last seen running timestamp string into a datetime object
-        last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S")
+        last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
         # Get the current timestamp
-        current_timestamp = datetime.now()
+        current_timestamp = datetime.now(timezone.utc)
 
         # Calculate the uptime
         uptime = current_timestamp - last_seen_running
