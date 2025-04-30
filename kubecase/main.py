@@ -23,17 +23,17 @@ app.add_typer(get_app, name="get")
 
 @get_app.command("probe")
 def get_probe(namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace")):
-    """Generate a Probe Report"""
-    generate_pdb_report.run(namespace)
-
+    typer.echo(f"📋 Generating KubeCase Probe Report for namespace '{namespace}'...")
+    generate_probe_report.run(namespace)
+    
 @get_app.command("resource")
 def get_resource(namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace")):
-    """Generate a Resource Usage Report"""
+    typer.echo(f"📋 Generating KubeCase Resource Report for namespace '{namespace}'...")
     generate_resource_report.run(namespace)
 
 @get_app.command("pdb")
 def get_pdb(namespace: str = typer.Option(..., "-n", "--namespace", help="Target namespace")):
-    """Generate a Pod Disruption Budget Report"""
+    typer.echo(f"📋 Generating KubeCase Pod Disruption Budget Report for namespace '{namespace}'...")
     generate_pdb_report.run(namespace)
 
 
