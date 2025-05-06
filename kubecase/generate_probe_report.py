@@ -183,7 +183,7 @@ def calculate_uptime(last_seen_running_str):
     Calculate the uptime of a Kubernetes container given a last seen running timestamp as a string.
 
     Args:
-        last_seen_running_str (str): The last seen running timestamp as a string in the format "YYYY-MM-DD HH:MM:SS".
+        last_seen_running_str (str): The last seen running timestamp as a string in the format "YYYY-MM-DD HH:MM:SS GMT".
 
     Returns:
         str: The uptime in a human-readable format.
@@ -191,7 +191,7 @@ def calculate_uptime(last_seen_running_str):
 
     try:
         # Parse the last seen running timestamp string into a datetime object
-        last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        last_seen_running = datetime.strptime(last_seen_running_str, "%Y-%m-%d %H:%M:%S GMT").replace(tzinfo=timezone.utc)
 
         # Get the current timestamp
         current_timestamp = datetime.now(timezone.utc)
