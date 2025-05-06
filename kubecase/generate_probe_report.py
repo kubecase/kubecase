@@ -379,7 +379,7 @@ def run(namespace: str):
         owners=len(seen_owners),
         pods=len(pod_data.get('items', [])),
         containers=all_containers,
-        timestamp=datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
+        timestamp=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S GMT')
     )
     # Add image
     mascot_path = utils.get_asset_path("mascot.png")
