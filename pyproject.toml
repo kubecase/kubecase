@@ -15,6 +15,7 @@ dependencies = [
   "typer[all]",
   "fpdf2",
   "pandas",
+  "matplotlib"
 ]
 
 [project.scripts]
