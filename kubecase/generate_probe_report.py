@@ -169,11 +169,11 @@ def get_restart_or_start_time(container_status):
         if container_status.get("restartCount", 0) > 0:
             terminated = container_status.get("lastState", {}).get("terminated", {})
             if "finishedAt" in terminated:
-                return parser.parse(terminated["finishedAt"]).strftime("%Y-%m-%d %H:%M:%S")
+                return parser.parse(terminated["finishedAt"]).astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S GMT")
         else:
             running = container_status.get("state", {}).get("running", {})
             if "startedAt" in running:
-                return parser.parse(running["startedAt"]).strftime("%Y-%m-%d %H:%M:%S")
+                return parser.parse(running["startedAt"]).astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S GMT")
     except Exception:
         pass
     return "--"
